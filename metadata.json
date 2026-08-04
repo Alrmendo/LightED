@@ -1,0 +1,6 @@
+{
+  "name": "LightED - Quản Lý Học Phí & Điểm Danh",
+  "description": "Hệ thống quản lý điểm danh, tự động tính học phí và gửi mã VietQR nhắc đóng tiền cho phụ huynh học sinh Trung Tâm Anh Ngữ LightED.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
