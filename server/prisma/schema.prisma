@@ -1,0 +1,130 @@
+// Dùng generator "prisma-client-js" (client cổ điển, output vào node_modules/@prisma/client)
+// thay vì "prisma-client" mặc định của Prisma 7 — vì generator mới bắt buộc phải tự khai báo
+// driver adapter (vd @prisma/adapter-pg) khi khởi tạo PrismaClient. Với 1 service Node đơn giản
+// chạy local như dự án này, generator cổ điển (new PrismaClient() không cần adapter) là đủ và
+// đúng với giả định ban đầu của kiến trúc (mục 7 kế hoạch).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  TEACHER
+  PORTAL
+}
+
+enum AttendanceStatus {
+  present
+  excused
+  unexcused
+  holiday
+}
+
+enum PaidStatus {
+  unpaid
+  paid
+  partially_paid
+}
+
+model TeacherAccount {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
+model EnglishClass {
+  id                  String  @id @default(cuid())
+  name                String
+  teacherName         String
+  pricePerSession     Int // VND
+  scheduleDays        String
+  targetMonthSessions Int
+  daysOfWeek          Int[]   @default([]) // 0=CN..6=T7, khớp JS Date.getDay()
+  scheduleTime        String?
+  room                String?
+
+  students          Student[]
+  attendanceRecords AttendanceRecord[]
+  bills             TuitionBill[]
+}
+
+model Student {
+  id                String  @id @default(cuid())
+  name              String
+  parentName        String
+  phone             String
+  email             String?
+  avatar            String?
+  dob               String? // "DD/MM/YYYY", giữ nguyên định dạng chuỗi như frontend hiện tại
+  parentDob         String?
+  parentOccupation  String?
+  futureOrientation String?
+  notes             String?
+
+  classId String
+  class   EnglishClass @relation(fields: [classId], references: [id])
+
+  // Portal login: 1 mã PIN / học sinh, do giáo viên cấp/reset qua POST /api/students/:id/access-code.
+  // Đăng nhập portal = phone (của Student) + accessCode plaintext verify qua hash này.
+  portalAccessCodeHash String?
+  portalAccessEnabled  Boolean @default(false)
+
+  attendanceRecords AttendanceRecord[]
+  bills             TuitionBill[]
+}
+
+model AttendanceRecord {
+  id          String           @id @default(cuid())
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id])
+  classId     String
+  class       EnglishClass     @relation(fields: [classId], references: [id])
+  date        DateTime         @db.Date // DATE thuần, không timestamp, để tránh lệch timezone so với chuỗi "YYYY-MM-DD" của frontend
+  status      AttendanceStatus
+  note        String?
+  lessonTopic String?
+  homework    String?
+
+  @@unique([studentId, date])
+}
+
+// month: format chuẩn hoá "YYYY-MM" (vd "2026-05"), KHÔNG dùng label kiểu "THÁNG 5" như
+// Navbar.tsx hiện tại (label đó không có năm, không sort được — Phase 2 sẽ cập nhật Navbar).
+//
+// "Tháng hiện tại" khi API tạo bill mới cho học sinh mới / học sinh đổi lớp = tháng theo
+// ngày thực tế trên server tại thời điểm xử lý request (new Date(), KHÔNG lấy theo input
+// client) — format lại thành "YYYY-MM". Áp dụng lại quy tắc này khi viết route ở Phase 2.
+model TuitionBill {
+  id                    String       @id @default(cuid())
+  studentId             String
+  student               Student      @relation(fields: [studentId], references: [id])
+  classId               String
+  class                 EnglishClass @relation(fields: [classId], references: [id])
+  month                 String
+  totalAttendedSessions Int
+  pricePerSession       Int
+  totalAmount           Int
+  // Bill với paidStatus = paid là BẤT BIẾN: mọi job recalc ở API layer (đổi điểm danh, đổi
+  // giá lớp, học sinh chuyển lớp...) PHẢI bỏ qua các bill đang paid, tuyệt đối không sửa hồi tố.
+  paidStatus            PaidStatus   @default(unpaid)
+  paidDate              DateTime?
+  note                  String?
+  receiptUrl            String? // để trống ở Phase 1, dùng cho upload biên lai thật ở Phase 2
+
+  @@unique([studentId, month])
+}
+
+model BankConfig {
+  id            String @id @default(cuid()) // chỉ nên có đúng 1 row — cấu hình của trung tâm
+  bankId        String
+  bankName      String
+  accountNumber String
+  accountHolder String
+  centerName    String
+  teacherName   String
+}

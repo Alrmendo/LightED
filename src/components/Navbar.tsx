@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, CalendarCheck, CreditCard, Users, Settings, UserCheck, QrCode, LayoutDashboard, User } from 'lucide-react';
+import { BookOpen, CalendarCheck, CreditCard, Users, Settings, UserCheck, QrCode, LayoutDashboard, User, LogOut } from 'lucide-react';
 import { BankConfig } from '../types';
 
 interface NavbarProps {
@@ -9,6 +9,7 @@ interface NavbarProps {
   setSelectedMonth: (month: string) => void;
   bankConfig: BankConfig;
   currentUser?: { name: string; role: string };
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   setSelectedMonth,
   bankConfig,
   currentUser = { name: 'GV. Nguyễn Văn Minh', role: 'Quản trị viên' },
+  onLogout,
 }) => {
   return (
     <header className="sticky top-0 z-40 pt-2 sm:pt-3 pb-1">
@@ -68,10 +70,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* User Profile Pill */}
             <div
-              className="hidden sm:flex items-center space-x-2.5 liquid-glass-pill hover:bg-white/90 text-indigo-950 px-3.5 py-1.5 rounded-2xl text-xs font-semibold transition cursor-pointer"
+              className="hidden sm:flex items-center space-x-2.5 liquid-glass-pill text-indigo-950 px-3.5 py-1.5 rounded-2xl text-xs font-semibold"
               title="Tài khoản đang đăng nhập"
             >
-              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#103BE6] to-blue-500 text-white flex items-center justify-center text-[10px] font-extrabold shadow-xs">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#103BE6] to-blue-500 text-white flex items-center justify-center text-[10px] font-extrabold shadow-xs shrink-0">
                 <User className="w-3.5 h-3.5" />
               </div>
               <div className="text-left">
@@ -79,6 +81,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="text-[10px] text-[#103BE6] font-bold mt-0.5">{currentUser.role}</div>
               </div>
             </div>
+
+            {onLogout && (
+              <button
+                id="nav-logout"
+                onClick={onLogout}
+                title="Đăng xuất"
+                aria-label="Đăng xuất"
+                className="flex items-center justify-center liquid-glass-pill hover:bg-rose-50 hover:text-rose-600 text-slate-600 w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 shrink-0"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
