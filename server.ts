@@ -2,8 +2,10 @@ import 'dotenv/config';
 import app from './server/src/app';
 import { env } from './server/src/config/env';
 
-// TODO (Phase sau): mount static dist/ (build Vite) khi build:server (esbuild bundle server.js)
-// được triển khai — DoD Phase 1 đánh dấu bước này là optional, chưa cần làm.
+// Entry point production: `npm run build` bundle file này (+ toàn bộ server/src/**) thành
+// server.js ở root qua esbuild (xem script "build:server" ở package.json), app.ts tự phục vụ
+// static dist/ (frontend đã build) song song với API trong CÙNG 1 process — đúng kiến trúc single
+// Web Service trên Render (không cần 2 service riêng frontend/backend).
 app.listen(env.PORT, () => {
   console.log(`LightED server đang chạy tại http://localhost:${env.PORT}`);
 });

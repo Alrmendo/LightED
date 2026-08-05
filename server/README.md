@@ -97,6 +97,28 @@ Schema nằm ở `server/prisma/schema.prisma`. Cấu hình Prisma CLI (đườn
 
 `POST /api/auth/teacher/login` và `POST /api/auth/portal/login` đều gắn `createLoginRateLimiter()` (`middleware/loginRateLimiter.ts`, factory tạo `express-rate-limit` — gọi 1 lần riêng cho mỗi route nên 2 endpoint có bộ đếm độc lập, brute-force PIN portal không ăn chung quota với login giáo viên). Giới hạn: **10 request / 15 phút / IP**, vượt quá trả `429 RATE_LIMITED` đúng format lỗi chung. Đã verify lại bằng cách gọi `POST /api/auth/teacher/login` sai password 11 lần liên tiếp: 10 lần đầu trả `401 INVALID_CREDENTIALS`, lần thứ 11 trả `429 RATE_LIMITED` — đúng như thiết kế, không cần sửa gì thêm.
 
+## Deploy production (Render, Web Service, không Docker)
+
+Kiến trúc: 1 process duy nhất vừa phục vụ API (`/api/*`) vừa phục vụ static frontend đã build (`dist/`) — không cần 2 service riêng.
+
+**Build**: `npm ci && npm run build` — chạy 2 bước tuần tự:
+1. `vite build` → `dist/` (frontend).
+2. `build:server` (script mới, dùng esbuild sẵn có trong devDependencies) → bundle `server.ts` + toàn bộ `server/src/**` thành 1 file `server.js` ở root. `--packages=external` cố tình KHÔNG bundle `node_modules` (bcrypt là native addon, `@prisma/client` cần engine binary riêng — bundle 2 thứ này vào 1 file sẽ vỡ) — `node_modules` vẫn được resolve bình thường lúc chạy, y hệt chạy qua `tsx`.
+
+**Start**: `node server.js` (= script `start` mới trong `package.json`) — đọc `PORT` từ `process.env` (`server/src/config/env.ts`, không hardcode), tự phục vụ `dist/` + SPA fallback cho mọi GET không phải `/api/*` (xem `app.ts`).
+
+**Trước khi deploy phải chạy migration** (`prisma migrate deploy`, KHÔNG phải `migrate dev` — lệnh dev tương tác/prompt, không dùng được trong pipeline non-interactive): dùng Render **Pre-Deploy Command** nếu gói đang dùng hỗ trợ (chạy sau Build, trước khi bản mới thật sự live) — `npx prisma migrate deploy && npx prisma generate` (gọi lại `generate` tường minh dù `migrate deploy` thường tự làm, để chắc chắn `@prisma/client` sinh ra đúng bản khớp schema trước khi `server.js` import nó). Nếu gói Free không có Pre-Deploy Command, gộp thẳng vào Start Command: `npx prisma migrate deploy && npx prisma generate && node server.js` — an toàn để chạy lại mỗi lần restart vì `migrate deploy` chỉ áp dụng migration còn thiếu (no-op nếu đã up-to-date).
+
+**Đã sửa 2 việc dưới đây khi chuẩn bị deploy** (phát hiện lúc rà lại, không phải có sẵn từ trước — xem lịch sử `app.ts`/`server.ts`):
+- `app.set('trust proxy', 1)` — thiếu dòng này thì `express-rate-limit` (2 endpoint login) ném lỗi validation ngay khi thấy header `X-Forwarded-For` do proxy của Render gắn vào, tức là login lỗi ngay sau khi deploy. `1` = tin đúng 1 hop proxy ngay trước app, khớp kiến trúc Render.
+- Static serving + SPA fallback trong `app.ts` — trước đó hoàn toàn chưa có (chỉ là 1 dòng TODO trong `server.ts`), `dist/` build ra nhưng chưa ai serve nó.
+
+**Biến môi trường bắt buộc trên Render** (giống hệt `.env` local, xem mục Setup ở trên): `DATABASE_URL`, `JWT_SECRET`, `SEED_TEACHER_EMAIL`, `SEED_TEACHER_PASSWORD`, `PORT` (Render tự inject, không cần set tay), `FRONTEND_ORIGIN` (đặt = đúng URL Render cấp cho service, vd `https://lighted-xxxx.onrender.com` — vì frontend/backend chung origin nên CORS gần như không phát sinh cho traffic thật, nhưng vẫn nên khoá đúng giá trị thay vì để trống/`*`). `DATABASE_URL` cần connection string có `sslmode=require` nếu dùng Postgres hosted qua internet công cộng (Neon, Render Postgres...).
+
+**Seed production**: `server/prisma/seed.ts` tạo CẢ `TeacherAccount` thật LẪN dữ liệu demo giả (lớp/học sinh/điểm danh mẫu) trong cùng 1 script, không tách được. Quyết định đã chọn: chạy nguyên `npm run db:seed` (hoặc `npx prisma db seed`) 1 lần thủ công qua Render Shell sau lần deploy đầu — chấp nhận có data demo ban đầu, xoá tay sau nếu cần.
+
+**Đã verify local**: `npm ci` (bỏ qua vì môi trường dev đã cài sẵn) → `npm run build` chạy sạch (vite build + esbuild bundle, không lỗi) → `node server.js` boot đúng, phục vụ đồng thời `GET /` (200 `text/html`, index.html thật), asset tĩnh (200 `application/javascript`), API thật (`POST /api/auth/teacher/login` trả token đúng), `GET /api/khong-ton-tai` vẫn trả JSON 404 chuẩn (không bị SPA fallback nuốt mất), và 1 path lạ bất kỳ (`GET /some-random-path`) trả về `index.html` (SPA fallback hoạt động đúng) thay vì 404.
+
 ## Quy tắc nghiệp vụ quan trọng (áp dụng khi viết route ở Phase 2)
 
 **1. Bill đã `paid` là bất biến.**
