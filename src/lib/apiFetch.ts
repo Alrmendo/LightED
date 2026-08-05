@@ -1,4 +1,10 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000';
+// Vite thay `import.meta.env.VITE_API_URL` bằng literal string NGAY LÚC BUILD (không phải lúc
+// chạy) — nếu fallback ở đây là 1 URL cụ thể (vd 'http://localhost:4000'), giá trị đó bị bake
+// cứng vào bundle production bất cứ khi nào build mà thiếu biến này (đúng tình huống Render: build
+// từ git clone sạch, không có .env/.env.local nào cả). Fallback PHẢI là '' (relative path, cùng
+// origin với chính trang đang serve) — dev local cần base URL riêng (frontend :3000, backend
+// :4000 khác origin) thì set qua `.env.local` (không commit), KHÔNG sửa fallback này.
+const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const TOKEN_STORAGE_KEY = 'lighted_auth_token';
 
 // localStorage + Bearer header (không phải httpOnly cookie): backend đã build theo JWT Bearer
