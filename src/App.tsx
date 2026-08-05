@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Loader2, LogOut } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { DashboardHome } from './components/DashboardHome';
@@ -11,22 +11,22 @@ import { ParentPortal } from './components/ParentPortal';
 import { LoginScreen } from './components/LoginScreen';
 import { useAuth } from './hooks/useAuth';
 import { usePortalMe } from './hooks/usePortalMe';
+import { useTeacherData } from './hooks/useTeacherData';
 
-import {
-  BankConfig,
-  EnglishClass,
-  Student,
-  AttendanceRecord,
-  TuitionBill,
-} from './types';
+import { BankConfig } from './types';
 
-import {
-  INITIAL_BANK_CONFIG,
-  INITIAL_CLASSES,
-  INITIAL_STUDENTS,
-  generateInitialAttendance,
-  generateInitialTuitionBills,
-} from './data/mockData';
+// Fallback khi BankConfig chưa từng được cấu hình (GET /api/bank-config trả null — chỉ xảy ra
+// nếu DB chưa từng seed/PUT lần nào, xem server/README.md). Truyền object rỗng thay vì null để
+// các component con (vốn coi bankConfig là required, không optional) không crash; BankSettings
+// sẽ hiện đúng 1 form trống cho giáo viên điền lần đầu.
+const EMPTY_BANK_CONFIG: BankConfig = {
+  bankId: '',
+  bankName: '',
+  accountNumber: '',
+  accountHolder: '',
+  centerName: '',
+  teacherName: '',
+};
 
 // Nền gradient + blob động dùng chung cho mọi màn full-screen (login/loading/portal) để không bị
 // "giật" phong cách khi chuyển qua lại — copy nguyên từ layout chính của App bên dưới.
@@ -130,269 +130,17 @@ export default function App() {
   const auth = useAuth();
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'tuition' | 'attendance' | 'parent' | 'classes' | 'settings'>('dashboard');
-  const [selectedMonth, setSelectedMonth] = useState<string>('THÁNG 5');
+  const [selectedMonth, setSelectedMonth] = useState<string>('2026-05');
 
-  // Load state from localStorage or initial mock data
-  const [bankConfig, setBankConfig] = useState<BankConfig>(() => {
-    const saved = localStorage.getItem('english_center_bank_config');
-    return saved ? JSON.parse(saved) : INITIAL_BANK_CONFIG;
-  });
+  // Nguồn dữ liệu thật (Phase 2) — thay toàn bộ localStorage/mockData cũ. Gọi hook KHÔNG điều
+  // kiện ở đây (Rules of Hooks), y hệt vị trí state mock cũ, dù đang ở màn login/portal thì hook
+  // vẫn tự fetch bình thường — không ảnh hưởng gì, chỉ là dữ liệu chưa dùng tới.
+  const teacherData = useTeacherData(
+    selectedMonth,
+    auth.status === 'authenticated' && auth.profile.role === 'TEACHER'
+  );
 
-  const [classes, setClasses] = useState<EnglishClass[]>(() => {
-    const saved = localStorage.getItem('english_center_classes');
-    return saved ? JSON.parse(saved) : INITIAL_CLASSES;
-  });
-
-  const [students, setStudents] = useState<Student[]>(() => {
-    const saved = localStorage.getItem('english_center_students');
-    return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
-  });
-
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => {
-    const saved = localStorage.getItem('english_center_attendance');
-    return saved ? JSON.parse(saved) : generateInitialAttendance();
-  });
-
-  const [bills, setBills] = useState<TuitionBill[]>(() => {
-    const saved = localStorage.getItem('english_center_bills');
-    if (saved) return JSON.parse(saved);
-    const initialAtt = generateInitialAttendance();
-    return generateInitialTuitionBills(INITIAL_STUDENTS, INITIAL_CLASSES, initialAtt);
-  });
-
-  // Save changes to localStorage
-  useEffect(() => {
-    localStorage.setItem('english_center_bank_config', JSON.stringify(bankConfig));
-  }, [bankConfig]);
-
-  useEffect(() => {
-    localStorage.setItem('english_center_classes', JSON.stringify(classes));
-  }, [classes]);
-
-  useEffect(() => {
-    localStorage.setItem('english_center_students', JSON.stringify(students));
-  }, [students]);
-
-  useEffect(() => {
-    localStorage.setItem('english_center_attendance', JSON.stringify(attendanceRecords));
-  }, [attendanceRecords]);
-
-  useEffect(() => {
-    localStorage.setItem('english_center_bills', JSON.stringify(bills));
-  }, [bills]);
-
-  // Recalculate bills whenever attendance or classes or students change
-  const recalculateBills = (
-    currentStudents: Student[],
-    currentClasses: EnglishClass[],
-    currentAttendance: AttendanceRecord[],
-    currentBills: TuitionBill[]
-  ) => {
-    return currentStudents.map((std) => {
-      const cls = currentClasses.find((c) => c.id === std.classId);
-      const pricePerSession = cls ? cls.pricePerSession : 0;
-
-      const stdAttendance = currentAttendance.filter(
-        (a) => a.studentId === std.id && a.status === 'present'
-      );
-
-      const attendedDates = stdAttendance
-        .map((a) => {
-          const parts = a.date.split('-');
-          return `${parts[2]}/${parts[1]}`;
-        })
-        .sort();
-
-      const totalAttendedSessions = stdAttendance.length;
-      const totalAmount = totalAttendedSessions * pricePerSession;
-
-      const existingBill = currentBills.find((b) => b.studentId === std.id);
-
-      return {
-        id: existingBill ? existingBill.id : `bill-${std.id}-${selectedMonth}`,
-        studentId: std.id,
-        classId: std.classId,
-        month: selectedMonth,
-        attendedDates,
-        totalAttendedSessions,
-        pricePerSession,
-        totalAmount,
-        paidStatus: existingBill ? existingBill.paidStatus : 'unpaid',
-      };
-    });
-  };
-
-  // Handler: Update student attendance for a date
-  const handleUpdateAttendance = (
-    studentId: string,
-    date: string,
-    status: 'present' | 'excused' | 'unexcused' | 'holiday',
-    topic?: string
-  ) => {
-    const student = students.find((s) => s.id === studentId);
-    if (!student) return;
-
-    let updatedRecords = [...attendanceRecords];
-    const existingIndex = updatedRecords.findIndex(
-      (r) => r.studentId === studentId && r.date === date
-    );
-
-    if (existingIndex >= 0) {
-      updatedRecords[existingIndex] = {
-        ...updatedRecords[existingIndex],
-        status,
-        lessonTopic: topic || updatedRecords[existingIndex].lessonTopic,
-      };
-    } else {
-      updatedRecords.push({
-        id: `att-${Date.now()}-${Math.random()}`,
-        studentId,
-        classId: student.classId,
-        date,
-        status,
-        lessonTopic: topic || 'Chủ đề bài học',
-      });
-    }
-
-    setAttendanceRecords(updatedRecords);
-
-    // Recalculate bills automatically!
-    const newBills = recalculateBills(students, classes, updatedRecords, bills);
-    setBills(newBills);
-  };
-
-  // Handler: Add a new session date for a class
-  const handleAddClassSessionDate = (classId: string, date: string) => {
-    const classStudents = students.filter((s) => s.classId === classId);
-    let updatedRecords = [...attendanceRecords];
-
-    classStudents.forEach((std) => {
-      const exists = updatedRecords.some((r) => r.studentId === std.id && r.date === date);
-      if (!exists) {
-        updatedRecords.push({
-          id: `att-${Date.now()}-${std.id}`,
-          studentId: std.id,
-          classId,
-          date,
-          status: 'present',
-          lessonTopic: 'Bài giảng theo lịch',
-        });
-      }
-    });
-
-    setAttendanceRecords(updatedRecords);
-
-    // Recalculate bills
-    const newBills = recalculateBills(students, classes, updatedRecords, bills);
-    setBills(newBills);
-  };
-
-  // Handler: Sync Class Weekly Schedule to Attendance Matrix
-  const handleSyncClassScheduleToAttendance = (classId: string, daysOfWeek: number[], yearMonthStr: string = '2026-05') => {
-    let year = 2026;
-    let month = 5;
-
-    if (yearMonthStr.includes('-')) {
-      const parts = yearMonthStr.split('-');
-      year = parseInt(parts[0], 10) || 2026;
-      month = parseInt(parts[1], 10) || 5;
-    } else {
-      const match = yearMonthStr.match(/\d+/);
-      if (match) month = parseInt(match[0], 10);
-    }
-
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const generatedDates: string[] = [];
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateObj = new Date(year, month - 1, day);
-      const dayOfWeek = dateObj.getDay(); // 0 = Sun, 1 = Mon...
-      if (daysOfWeek.includes(dayOfWeek)) {
-        const yyyy = dateObj.getFullYear();
-        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const dd = String(dateObj.getDate()).padStart(2, '0');
-        generatedDates.push(`${yyyy}-${mm}-${dd}`);
-      }
-    }
-
-    const classStudents = students.filter((s) => s.classId === classId);
-    let updatedRecords = [...attendanceRecords];
-    let createdSessionsCount = 0;
-
-    generatedDates.forEach((date) => {
-      classStudents.forEach((std) => {
-        const exists = updatedRecords.some((r) => r.studentId === std.id && r.date === date);
-        if (!exists) {
-          updatedRecords.push({
-            id: `att-${Date.now()}-${std.id}-${Math.random()}`,
-            studentId: std.id,
-            classId,
-            date,
-            status: 'present',
-            lessonTopic: 'Bài giảng theo lịch học',
-          });
-          createdSessionsCount++;
-        }
-      });
-    });
-
-    setAttendanceRecords(updatedRecords);
-    const newBills = recalculateBills(students, classes, updatedRecords, bills);
-    setBills(newBills);
-
-    return { generatedDatesCount: generatedDates.length, createdSessionsCount };
-  };
-
-  // Handler: Update Tuition Bill Paid Status
-  const handleUpdateBillStatus = (billId: string, newStatus: 'paid' | 'unpaid') => {
-    setBills((prev) =>
-      prev.map((b) => (b.id === billId ? { ...b, paidStatus: newStatus } : b))
-    );
-  };
-
-  // Handler: Class Management
-  const handleAddClass = (newClass: Omit<EnglishClass, 'id'>) => {
-    const clsObj: EnglishClass = { ...newClass, id: `class-${Date.now()}` };
-    const updated = [...classes, clsObj];
-    setClasses(updated);
-  };
-
-  const handleUpdateClass = (updatedClass: EnglishClass) => {
-    const updated = classes.map((c) => (c.id === updatedClass.id ? updatedClass : c));
-    setClasses(updated);
-    setBills(recalculateBills(students, updated, attendanceRecords, bills));
-  };
-
-  const handleDeleteClass = (classId: string) => {
-    const updated = classes.filter((c) => c.id !== classId);
-    setClasses(updated);
-  };
-
-  // Handler: Student Management
-  const handleAddStudent = (newStudent: Omit<Student, 'id'>) => {
-    const stdObj: Student = { ...newStudent, id: `std-${Date.now()}` };
-    const updated = [...students, stdObj];
-    setStudents(updated);
-
-    // Generate initial bills for new student
-    const newBills = recalculateBills(updated, classes, attendanceRecords, bills);
-    setBills(newBills);
-  };
-
-  const handleUpdateStudent = (updatedStudent: Student) => {
-    const updated = students.map((s) => (s.id === updatedStudent.id ? updatedStudent : s));
-    setStudents(updated);
-    setBills(recalculateBills(updated, classes, attendanceRecords, bills));
-  };
-
-  const handleDeleteStudent = (studentId: string) => {
-    const updated = students.filter((s) => s.id !== studentId);
-    setStudents(updated);
-  };
-
-  // Auth-gate: đặt SAU mọi hook ở trên (Rules of Hooks — không được gọi hook có điều kiện),
-  // chỉ rẽ nhánh phần JSX render ra. State mock/localStorage phía giáo viên ở trên vẫn khởi tạo
-  // bình thường dù đang ở màn login/portal — không ảnh hưởng gì, chỉ là chưa dùng tới.
+  // Auth-gate: đặt SAU mọi hook ở trên, chỉ rẽ nhánh phần JSX render ra.
   if (auth.status === 'loading') {
     return <FullScreenStatus message="Đang kiểm tra đăng nhập..." />;
   }
@@ -404,6 +152,29 @@ export default function App() {
   if (auth.profile.role === 'PORTAL') {
     return <PortalGate onLogout={auth.logout} />;
   }
+
+  if (teacherData.loading) {
+    return <FullScreenStatus message="Đang tải dữ liệu..." />;
+  }
+
+  if (teacherData.error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50/90 via-sky-50/70 to-slate-100 relative overflow-x-hidden font-sans text-slate-900 flex items-center justify-center px-4">
+        <AmbientBackground />
+        <div className="relative z-10 liquid-glass rounded-2xl px-6 py-6 max-w-sm w-full text-center space-y-4">
+          <p className="text-sm font-semibold text-rose-700">{teacherData.error}</p>
+          <button
+            onClick={() => teacherData.reload()}
+            className="liquid-glass-btn-primary px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const bankConfig = teacherData.bankConfig ?? EMPTY_BANK_CONFIG;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50/90 via-sky-50/70 to-slate-100 relative overflow-x-hidden font-sans text-slate-900 pb-16 selection:bg-[#FF5500] selection:text-white">
@@ -449,74 +220,74 @@ export default function App() {
         {/* Tab 0: Main Dashboard Overview */}
         {activeTab === 'dashboard' && (
           <DashboardHome
-            bills={bills}
-            classes={classes}
-            students={students}
-            attendanceRecords={attendanceRecords}
+            bills={teacherData.bills}
+            classes={teacherData.classes}
+            students={teacherData.students}
+            attendanceRecords={teacherData.attendanceRecords}
             bankConfig={bankConfig}
             selectedMonth={selectedMonth}
             onNavigateTab={setActiveTab}
             onSelectTab={setActiveTab}
-            onUpdateBillStatus={handleUpdateBillStatus}
+            onUpdateBillStatus={teacherData.updateBillStatus}
           />
         )}
 
         {/* Tab 1: Tuition Calculator & Reminders View */}
         {activeTab === 'tuition' && (
           <TuitionReminders
-            students={students}
-            classes={classes}
-            bills={bills}
-            attendanceRecords={attendanceRecords}
+            students={teacherData.students}
+            classes={teacherData.classes}
+            bills={teacherData.bills}
+            attendanceRecords={teacherData.attendanceRecords}
             bankConfig={bankConfig}
             selectedMonth={selectedMonth}
-            onUpdateBillStatus={handleUpdateBillStatus}
+            onUpdateBillStatus={teacherData.updateBillStatus}
           />
         )}
 
         {/* Tab 2: Attendance Matrix Excel Layout */}
         {activeTab === 'attendance' && (
           <AttendanceMatrix
-            classes={classes}
-            students={students}
-            attendanceRecords={attendanceRecords}
-            bills={bills}
+            classes={teacherData.classes}
+            students={teacherData.students}
+            attendanceRecords={teacherData.attendanceRecords}
+            bills={teacherData.bills}
             bankConfig={bankConfig}
             selectedMonth={selectedMonth}
-            onUpdateAttendance={handleUpdateAttendance}
-            onAddClassSessionDate={handleAddClassSessionDate}
-            onUpdateBillStatus={handleUpdateBillStatus}
+            onUpdateAttendance={teacherData.upsertAttendance}
+            onAddClassSessionDate={teacherData.addSessionDate}
+            onUpdateBillStatus={teacherData.updateBillStatus}
           />
         )}
 
         {/* Tab 3: Parent Info & Profile Search */}
         {activeTab === 'parent' && (
           <ParentInfo
-            students={students}
-            classes={classes}
-            bills={bills}
-            attendanceRecords={attendanceRecords}
+            students={teacherData.students}
+            classes={teacherData.classes}
+            bills={teacherData.bills}
+            attendanceRecords={teacherData.attendanceRecords}
             bankConfig={bankConfig}
             selectedMonth={selectedMonth}
-            onUpdateStudent={handleUpdateStudent}
-            onAddStudent={handleAddStudent}
-            onUpdateBillStatus={handleUpdateBillStatus}
+            onUpdateStudent={teacherData.updateStudent}
+            onAddStudent={teacherData.createStudent}
+            onUpdateBillStatus={teacherData.updateBillStatus}
           />
         )}
 
         {/* Tab 4: Class & Student Roster Management */}
         {activeTab === 'classes' && (
           <ClassManagement
-            classes={classes}
-            students={students}
+            classes={teacherData.classes}
+            students={teacherData.students}
             selectedMonth={selectedMonth}
-            onAddClass={handleAddClass}
-            onUpdateClass={handleUpdateClass}
-            onDeleteClass={handleDeleteClass}
-            onAddStudent={handleAddStudent}
-            onUpdateStudent={handleUpdateStudent}
-            onDeleteStudent={handleDeleteStudent}
-            onSyncSchedule={handleSyncClassScheduleToAttendance}
+            onAddClass={teacherData.createClass}
+            onUpdateClass={teacherData.updateClass}
+            onDeleteClass={teacherData.deleteClass}
+            onAddStudent={teacherData.createStudent}
+            onUpdateStudent={teacherData.updateStudent}
+            onDeleteStudent={teacherData.deleteStudent}
+            onSyncSchedule={teacherData.syncSchedule}
           />
         )}
 
@@ -524,12 +295,12 @@ export default function App() {
         {activeTab === 'settings' && (
           <BankSettings
             bankConfig={bankConfig}
-            onSaveBankConfig={setBankConfig}
-            classes={classes}
-            students={students}
+            onSaveBankConfig={teacherData.saveBankConfig}
+            classes={teacherData.classes}
+            students={teacherData.students}
             selectedMonth={selectedMonth}
-            onUpdateClass={handleUpdateClass}
-            onSyncSchedule={handleSyncClassScheduleToAttendance}
+            onUpdateClass={teacherData.updateClass}
+            onSyncSchedule={teacherData.syncSchedule}
           />
         )}
       </main>

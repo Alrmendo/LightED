@@ -17,13 +17,17 @@ interface ClassManagementProps {
   classes: EnglishClass[];
   students: Student[];
   selectedMonth?: string;
-  onAddClass: (newClass: Omit<EnglishClass, 'id'>) => void;
-  onUpdateClass: (updatedClass: EnglishClass) => void;
-  onDeleteClass: (classId: string) => void;
-  onAddStudent: (newStudent: Omit<Student, 'id'>) => void;
-  onUpdateStudent: (updatedStudent: Student) => void;
-  onDeleteStudent: (studentId: string) => void;
-  onSyncSchedule?: (classId: string, daysOfWeek: number[], monthLabel?: string) => { generatedDatesCount: number; createdSessionsCount: number };
+  onAddClass: (newClass: Omit<EnglishClass, 'id'>) => Promise<void>;
+  onUpdateClass: (updatedClass: EnglishClass) => Promise<void>;
+  onDeleteClass: (classId: string) => Promise<void>;
+  onAddStudent: (newStudent: Omit<Student, 'id'>) => Promise<void>;
+  onUpdateStudent: (updatedStudent: Student) => Promise<void>;
+  onDeleteStudent: (studentId: string) => Promise<void>;
+  onSyncSchedule?: (
+    classId: string,
+    daysOfWeek: number[],
+    monthLabel?: string
+  ) => Promise<{ generatedDatesCount: number; createdSessionsCount: number }>;
 }
 
 export const ClassManagement: React.FC<ClassManagementProps> = ({
@@ -53,6 +57,10 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
 
   // Sync Notification Banner State
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  // Banner lỗi cho các thao tác gọi API (đặc biệt case xoá bị chặn 409 do còn học sinh/lịch sử
+  // điểm danh — xem server/README.md). Message đã là câu tiếng Việt rõ ràng từ backend.
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Form Modal States for Student
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -115,45 +123,73 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
     setIsClassModalOpen(true);
   };
 
-  const handleSaveClass = (e: React.FormEvent) => {
+  const handleSaveClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!classNameInput) return;
 
-    if (editingClass) {
-      onUpdateClass({
-        ...editingClass,
-        name: classNameInput,
-        teacherName: teacherInput,
-        pricePerSession: Number(priceInput),
-        scheduleDays: scheduleInput,
-        daysOfWeek: daysOfWeekInput,
-        scheduleTime: timeInput,
-        room: roomInput,
-      });
-    } else {
-      onAddClass({
-        name: classNameInput,
-        teacherName: teacherInput,
-        pricePerSession: Number(priceInput),
-        scheduleDays: scheduleInput,
-        targetMonthSessions: 8,
-        daysOfWeek: daysOfWeekInput,
-        scheduleTime: timeInput,
-        room: roomInput,
-      });
+    setActionError(null);
+    try {
+      if (editingClass) {
+        await onUpdateClass({
+          ...editingClass,
+          name: classNameInput,
+          teacherName: teacherInput,
+          pricePerSession: Number(priceInput),
+          scheduleDays: scheduleInput,
+          daysOfWeek: daysOfWeekInput,
+          scheduleTime: timeInput,
+          room: roomInput,
+        });
+      } else {
+        await onAddClass({
+          name: classNameInput,
+          teacherName: teacherInput,
+          pricePerSession: Number(priceInput),
+          scheduleDays: scheduleInput,
+          targetMonthSessions: 8,
+          daysOfWeek: daysOfWeekInput,
+          scheduleTime: timeInput,
+          room: roomInput,
+        });
+      }
+      setIsClassModalOpen(false);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không lưu được thông tin lớp học.');
     }
-    setIsClassModalOpen(false);
   };
 
   // Trigger sync schedule to attendance matrix
-  const handleTriggerSync = (cls: EnglishClass) => {
+  const handleTriggerSync = async (cls: EnglishClass) => {
     if (!onSyncSchedule) return;
+    setActionError(null);
     const days = cls.daysOfWeek && cls.daysOfWeek.length > 0 ? cls.daysOfWeek : [1, 3, 5];
-    const res = onSyncSchedule(cls.id, days, selectedMonth);
-    setSyncNotice(
-      `Đã đồng bộ thành công ${res.generatedDatesCount} ngày dạy trong ${selectedMonth} cho lớp ${cls.name} sang Bảng Điểm Danh!`
-    );
-    setTimeout(() => setSyncNotice(null), 6000);
+    try {
+      const res = await onSyncSchedule(cls.id, days, selectedMonth);
+      setSyncNotice(
+        `Đã đồng bộ thành công ${res.generatedDatesCount} ngày dạy trong ${selectedMonth} cho lớp ${cls.name} sang Bảng Điểm Danh!`
+      );
+      setTimeout(() => setSyncNotice(null), 6000);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không đồng bộ được lịch học.');
+    }
+  };
+
+  const handleDeleteClassClick = async (classId: string) => {
+    setActionError(null);
+    try {
+      await onDeleteClass(classId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không xoá được lớp học.');
+    }
+  };
+
+  const handleDeleteStudentClick = async (studentId: string) => {
+    setActionError(null);
+    try {
+      await onDeleteStudent(studentId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không xoá được học sinh.');
+    }
   };
 
   // Open Student Modal
@@ -176,29 +212,34 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
     setIsStudentModalOpen(true);
   };
 
-  const handleSaveStudent = (e: React.FormEvent) => {
+  const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentNameInput || !studentClassIdInput) return;
 
-    if (editingStudent) {
-      onUpdateStudent({
-        ...editingStudent,
-        name: studentNameInput,
-        parentName: parentNameInput,
-        parentDob: parentDobInput,
-        phone: phoneInput,
-        classId: studentClassIdInput,
-      });
-    } else {
-      onAddStudent({
-        name: studentNameInput,
-        parentName: parentNameInput,
-        parentDob: parentDobInput,
-        phone: phoneInput,
-        classId: studentClassIdInput,
-      });
+    setActionError(null);
+    try {
+      if (editingStudent) {
+        await onUpdateStudent({
+          ...editingStudent,
+          name: studentNameInput,
+          parentName: parentNameInput,
+          parentDob: parentDobInput,
+          phone: phoneInput,
+          classId: studentClassIdInput,
+        });
+      } else {
+        await onAddStudent({
+          name: studentNameInput,
+          parentName: parentNameInput,
+          parentDob: parentDobInput,
+          phone: phoneInput,
+          classId: studentClassIdInput,
+        });
+      }
+      setIsStudentModalOpen(false);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không lưu được thông tin học sinh.');
     }
-    setIsStudentModalOpen(false);
   };
 
   return (
@@ -266,6 +307,19 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
         </div>
       </div>
 
+      {/* Error Banner — vd 409 khi xoá lớp còn học sinh / học sinh còn lịch sử điểm danh */}
+      {actionError && (
+        <div className="bg-rose-50 text-rose-700 border border-rose-200 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <span className="text-xs sm:text-sm font-bold">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-xs font-bold underline text-rose-700 hover:text-rose-900 px-2 cursor-pointer"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
       {/* Sync Banner Notification */}
       {syncNotice && (
         <div className="bg-emerald-500 text-white p-4 rounded-2xl shadow-lg border border-emerald-400 flex items-center justify-between animate-fade-in">
@@ -306,7 +360,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => onDeleteClass(cls.id)}
+                      onClick={() => handleDeleteClassClick(cls.id)}
                       className="p-1 text-slate-400 hover:text-rose-600 transition cursor-pointer"
                       title="Xóa lớp"
                     >
@@ -409,7 +463,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => onDeleteStudent(std.id)}
+                        onClick={() => handleDeleteStudentClick(std.id)}
                         className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer"
                         title="Xóa học sinh"
                       >

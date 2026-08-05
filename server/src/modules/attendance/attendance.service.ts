@@ -13,6 +13,24 @@ interface UpsertAttendanceInput {
   homework?: string;
 }
 
+// GET /api/attendance — danh sách điểm danh, filter tuỳ chọn theo classId/month/studentId (bỏ
+// trống filter nào thì không lọc theo field đó, giống pattern GET /api/bills). Cần cho teacher
+// dashboard hiển thị toàn bộ điểm danh của 1 lớp (AttendanceMatrix.tsx).
+export async function listAttendance(filters: { classId?: string; month?: string; studentId?: string }) {
+  const monthRange = filters.month ? monthDateRange(filters.month) : undefined;
+
+  const records = await prisma.attendanceRecord.findMany({
+    where: {
+      ...(filters.classId ? { classId: filters.classId } : {}),
+      ...(filters.studentId ? { studentId: filters.studentId } : {}),
+      ...(monthRange ? { date: { gte: monthRange.start, lt: monthRange.end } } : {}),
+    },
+    orderBy: { date: 'asc' },
+  });
+
+  return records.map((r) => ({ ...r, date: formatDateOnly(r.date) }));
+}
+
 // PUT /api/attendance — upsert theo unique (studentId, date) đã có sẵn trong schema. classId
 // LUÔN lấy theo lớp HIỆN TẠI của học sinh (không nhận classId từ client) — nhất quán với cách
 // students.service.ts/bills.service.ts xác định "lớp đang áp dụng" cho 1 học sinh. Sau khi ghi
@@ -73,7 +91,8 @@ export async function addSessionDate(classId: string, dateStr: string) {
   const date = parseDateOnly(dateStr);
   const month = dateStr.slice(0, 7);
 
-  await prisma.$transaction(async (tx) => {
+  const createdSessionsCount = await prisma.$transaction(async (tx) => {
+    let created = 0;
     if (students.length > 0) {
       const data: Prisma.AttendanceRecordCreateManyInput[] = students.map((s) => ({
         studentId: s.id,
@@ -82,7 +101,12 @@ export async function addSessionDate(classId: string, dateStr: string) {
         status: 'present',
         lessonTopic: 'Bài giảng theo lịch',
       }));
-      await tx.attendanceRecord.createMany({ data, skipDuplicates: true });
+      // createMany trả về { count } = số row THỰC SỰ được tạo (Prisma tự loại phần bị
+      // skipDuplicates bỏ qua) — dùng số này cho createdSessionsCount, KHÔNG suy đoán bằng
+      // students.length, để response phản ánh đúng có bao nhiêu bản ghi mới thật sự (vd gọi lại
+      // lần 2 cùng classId+date thì createdSessionsCount phải là 0).
+      const result = await tx.attendanceRecord.createMany({ data, skipDuplicates: true });
+      created = result.count;
     }
 
     for (const s of students) {
@@ -93,9 +117,11 @@ export async function addSessionDate(classId: string, dateStr: string) {
         pricePerSession: cls.pricePerSession,
       });
     }
+
+    return created;
   });
 
-  return { classId, date: dateStr, studentsCount: students.length };
+  return { classId, date: dateStr, studentsCount: students.length, createdSessionsCount };
 }
 
 // POST /api/attendance/sync-schedule — sinh toàn bộ buổi học của 1 THÁNG dựa theo
@@ -122,7 +148,8 @@ export async function syncSchedule(classId: string, month: string) {
     if (cls.daysOfWeek.includes(d.getUTCDay())) dates.push(new Date(d));
   }
 
-  await prisma.$transaction(async (tx) => {
+  const createdSessionsCount = await prisma.$transaction(async (tx) => {
+    let created = 0;
     if (students.length > 0 && dates.length > 0) {
       const data: Prisma.AttendanceRecordCreateManyInput[] = dates.flatMap((date) =>
         students.map((s) => ({
@@ -133,7 +160,10 @@ export async function syncSchedule(classId: string, month: string) {
           lessonTopic: 'Bài giảng theo lịch học',
         }))
       );
-      await tx.attendanceRecord.createMany({ data, skipDuplicates: true });
+      // Xem chú thích tương tự ở addSessionDate() — createMany({ skipDuplicates: true }).count là
+      // số bản ghi MỚI thật sự, dùng cho createdSessionsCount thay vì suy đoán.
+      const result = await tx.attendanceRecord.createMany({ data, skipDuplicates: true });
+      created = result.count;
     }
 
     // Toàn bộ ngày sinh ra đều nằm trong đúng 1 `month` truyền vào (monthDateRange giới hạn
@@ -148,7 +178,15 @@ export async function syncSchedule(classId: string, month: string) {
         pricePerSession: cls.pricePerSession,
       });
     }
+
+    return created;
   });
 
-  return { classId, month, generatedDatesCount: dates.length, studentsCount: students.length };
+  return {
+    classId,
+    month,
+    generatedDatesCount: dates.length,
+    studentsCount: students.length,
+    createdSessionsCount,
+  };
 }

@@ -15,7 +15,7 @@ interface DashboardHomeProps {
   onNavigateTab?: (tab: 'dashboard' | 'tuition' | 'attendance' | 'parent' | 'classes' | 'settings') => void;
   onSelectTab?: (tab: 'dashboard' | 'tuition' | 'attendance' | 'parent' | 'classes' | 'settings') => void;
   onOpenQrModal?: (student: Student, englishClass: EnglishClass, bill: TuitionBill) => void;
-  onUpdateBillStatus?: (billId: string, newStatus: 'paid' | 'unpaid') => void;
+  onUpdateBillStatus?: (billId: string, newStatus: 'paid' | 'unpaid') => Promise<void>;
 }
 
 const DAYS_OF_WEEK_CONFIG = [
@@ -690,9 +690,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           bill={qrModalStudent.bill}
           bankConfig={bankConfig}
           selectedMonth={selectedMonth}
-          onTogglePaidStatus={(billId, newStatus) => {
+          onTogglePaidStatus={async (billId, newStatus) => {
             if (onUpdateBillStatus) {
-              onUpdateBillStatus(billId, newStatus);
+              await onUpdateBillStatus(billId, newStatus);
             }
             setQrModalStudent((prev) =>
               prev ? { ...prev, bill: { ...prev.bill, paidStatus: newStatus } } : null

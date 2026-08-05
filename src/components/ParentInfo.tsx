@@ -11,9 +11,9 @@ interface ParentInfoProps {
   attendanceRecords: AttendanceRecord[];
   bankConfig: BankConfig;
   selectedMonth: string;
-  onUpdateStudent: (updatedStudent: Student) => void;
-  onAddStudent: (newStudent: Student) => void;
-  onUpdateBillStatus: (billId: string, newStatus: 'paid' | 'unpaid') => void;
+  onUpdateStudent: (updatedStudent: Student) => Promise<void>;
+  onAddStudent: (newStudent: Omit<Student, 'id'>) => Promise<void>;
+  onUpdateBillStatus: (billId: string, newStatus: 'paid' | 'unpaid') => Promise<void>;
 }
 
 export const ParentInfo: React.FC<ParentInfoProps> = ({
@@ -85,8 +85,9 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
   // Open Add Modal
   const handleOpenAdd = () => {
     setEditingStudent(null);
+    // KHÔNG tự sinh id ở client — server sinh id thật khi tạo (POST /api/students). formData khi
+    // thêm mới vì vậy không có field `id`.
     setFormData({
-      id: `std-${Date.now()}`,
       name: '',
       parentName: '',
       phone: '',
@@ -100,23 +101,26 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
     setIsAddingNew(true);
   };
 
-  const handleSaveStudent = (e: React.FormEvent) => {
+  const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.parentName || !formData.phone) {
       showToast('Vui lòng điền đủ Tên học sinh, Tên phụ huynh và Số điện thoại!');
       return;
     }
 
-    if (isAddingNew) {
-      onAddStudent(formData as Student);
-      showToast('Đã thêm hồ sơ phụ huynh & học sinh mới!');
-    } else if (editingStudent) {
-      onUpdateStudent(formData as Student);
-      showToast('Đã cập nhật thông tin hồ sơ thành công!');
+    try {
+      if (isAddingNew) {
+        await onAddStudent(formData as Omit<Student, 'id'>);
+        showToast('Đã thêm hồ sơ phụ huynh & học sinh mới!');
+      } else if (editingStudent) {
+        await onUpdateStudent(formData as Student);
+        showToast('Đã cập nhật thông tin hồ sơ thành công!');
+      }
+      setEditingStudent(null);
+      setIsAddingNew(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không lưu được hồ sơ, vui lòng thử lại.');
     }
-
-    setEditingStudent(null);
-    setIsAddingNew(false);
   };
 
   // Specific Tab Dashboard Metrics (Feedback #5)
@@ -527,12 +531,16 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
           bill={qrModalStudent.bill}
           bankConfig={bankConfig}
           selectedMonth={selectedMonth}
-          onTogglePaidStatus={(billId, newStatus) => {
-            onUpdateBillStatus(billId, newStatus);
-            setQrModalStudent((prev) =>
-              prev ? { ...prev, bill: { ...prev.bill, paidStatus: newStatus } } : null
-            );
-            showToast(newStatus === 'paid' ? 'Đã thu học phí thành công!' : 'Đã chuyển thành chưa thu');
+          onTogglePaidStatus={async (billId, newStatus) => {
+            try {
+              await onUpdateBillStatus(billId, newStatus);
+              setQrModalStudent((prev) =>
+                prev ? { ...prev, bill: { ...prev.bill, paidStatus: newStatus } } : null
+              );
+              showToast(newStatus === 'paid' ? 'Đã thu học phí thành công!' : 'Đã chuyển thành chưa thu');
+            } catch (err) {
+              showToast(err instanceof Error ? err.message : 'Không cập nhật được trạng thái thanh toán.');
+            }
           }}
         />
       )}

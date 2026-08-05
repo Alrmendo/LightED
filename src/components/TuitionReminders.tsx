@@ -12,7 +12,7 @@ interface TuitionRemindersProps {
   attendanceRecords: AttendanceRecord[];
   bankConfig: BankConfig;
   selectedMonth: string;
-  onUpdateBillStatus: (billId: string, newStatus: 'paid' | 'unpaid') => void;
+  onUpdateBillStatus: (billId: string, newStatus: 'paid' | 'unpaid') => Promise<void>;
 }
 
 export const TuitionReminders: React.FC<TuitionRemindersProps> = ({
@@ -46,6 +46,14 @@ export const TuitionReminders: React.FC<TuitionRemindersProps> = ({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleToggleBillStatus = async (billId: string, newStatus: 'paid' | 'unpaid') => {
+    try {
+      await onUpdateBillStatus(billId, newStatus);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không cập nhật được trạng thái thanh toán.');
+    }
   };
 
   // Filter logic
@@ -294,7 +302,7 @@ export const TuitionReminders: React.FC<TuitionRemindersProps> = ({
                             type="checkbox"
                             checked={isPaid}
                             onChange={(e) =>
-                              onUpdateBillStatus(bill.id, e.target.checked ? 'paid' : 'unpaid')
+                              handleToggleBillStatus(bill.id, e.target.checked ? 'paid' : 'unpaid')
                             }
                             className="w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                           />
@@ -398,12 +406,16 @@ export const TuitionReminders: React.FC<TuitionRemindersProps> = ({
           bill={activeModalStudent.bill}
           bankConfig={bankConfig}
           selectedMonth={selectedMonth}
-          onTogglePaidStatus={(billId, newStatus) => {
-            onUpdateBillStatus(billId, newStatus);
-            setActiveModalStudent((prev) =>
-              prev ? { ...prev, bill: { ...prev.bill, paidStatus: newStatus } } : null
-            );
-            showToast(newStatus === 'paid' ? 'Đã xác nhận THU HỌC PHÍ thành công!' : 'Đã chuyển thành chưa thu học phí');
+          onTogglePaidStatus={async (billId, newStatus) => {
+            try {
+              await onUpdateBillStatus(billId, newStatus);
+              setActiveModalStudent((prev) =>
+                prev ? { ...prev, bill: { ...prev.bill, paidStatus: newStatus } } : null
+              );
+              showToast(newStatus === 'paid' ? 'Đã xác nhận THU HỌC PHÍ thành công!' : 'Đã chuyển thành chưa thu học phí');
+            } catch (err) {
+              showToast(err instanceof Error ? err.message : 'Không cập nhật được trạng thái thanh toán.');
+            }
           }}
         />
       )}

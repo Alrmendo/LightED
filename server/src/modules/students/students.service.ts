@@ -20,10 +20,15 @@ async function getClassOrThrow(classId: string) {
   return cls;
 }
 
+// `omit: { portalAccessCodeHash: true }` ở cả 3 hàm dưới đây (list/create/update) — bcrypt hash
+// của PIN portal (chỉ 6 chữ số, keyspace 900,000 khả năng) không bao giờ được lộ ra response API,
+// kể cả cho giáo viên đã đăng nhập — tránh brute-force offline nếu Network tab/response bị lộ.
+// Cùng nguyên tắc portal.service.ts#getPortalMe đã áp dụng cho phía học sinh.
 export function listStudents(classId?: string) {
   return prisma.student.findMany({
     where: classId ? { classId } : undefined,
     orderBy: { name: 'asc' },
+    omit: { portalAccessCodeHash: true },
   });
 }
 
@@ -31,7 +36,7 @@ export async function createStudent(data: StudentInput) {
   const cls = await getClassOrThrow(data.classId);
 
   return prisma.$transaction(async (tx) => {
-    const student = await tx.student.create({ data });
+    const student = await tx.student.create({ data, omit: { portalAccessCodeHash: true } });
     // Học sinh mới -> tạo/tính bill THÁNG HIỆN TẠI (theo ngày thực server, quy tắc #2) theo lớp
     // vừa gán.
     await recalcBillsForStudent(tx, {
@@ -50,7 +55,7 @@ export async function updateStudent(id: string, data: StudentInput) {
   const cls = await getClassOrThrow(data.classId);
 
   return prisma.$transaction(async (tx) => {
-    const updated = await tx.student.update({ where: { id }, data });
+    const updated = await tx.student.update({ where: { id }, data, omit: { portalAccessCodeHash: true } });
     if (existing.classId !== updated.classId) {
       // Đổi lớp -> recalc bill THÁNG HIỆN TẠI theo lớp MỚI (không đụng tới bill các tháng khác).
       await recalcBillsForStudent(tx, {

@@ -11,7 +11,7 @@ interface QrModalProps {
   bill: TuitionBill;
   bankConfig: BankConfig;
   selectedMonth: string;
-  onTogglePaidStatus: (billId: string, newStatus: 'paid' | 'unpaid') => void;
+  onTogglePaidStatus: (billId: string, newStatus: 'paid' | 'unpaid') => Promise<void>;
 }
 
 export const QrModal: React.FC<QrModalProps> = ({
@@ -26,6 +26,8 @@ export const QrModal: React.FC<QrModalProps> = ({
 }) => {
   const [copiedText, setCopiedText] = useState(false);
   const [copiedAcc, setCopiedAcc] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -43,6 +45,18 @@ export const QrModal: React.FC<QrModalProps> = ({
     navigator.clipboard.writeText(bankConfig.accountNumber);
     setCopiedAcc(true);
     setTimeout(() => setCopiedAcc(false), 2500);
+  };
+
+  const handleToggle = async () => {
+    setToggleError(null);
+    setToggling(true);
+    try {
+      await onTogglePaidStatus(bill.id, bill.paidStatus === 'paid' ? 'unpaid' : 'paid');
+    } catch (err) {
+      setToggleError(err instanceof Error ? err.message : 'Không cập nhật được trạng thái thanh toán.');
+    } finally {
+      setToggling(false);
+    }
   };
 
   const handleOpenZalo = () => {
@@ -227,10 +241,9 @@ export const QrModal: React.FC<QrModalProps> = ({
                 </div>
 
                 <button
-                  onClick={() => {
-                    onTogglePaidStatus(bill.id, bill.paidStatus === 'paid' ? 'unpaid' : 'paid');
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-sm ${
+                  onClick={handleToggle}
+                  disabled={toggling}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
                     bill.paidStatus === 'paid'
                       ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -238,10 +251,20 @@ export const QrModal: React.FC<QrModalProps> = ({
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>
-                    {bill.paidStatus === 'paid' ? 'Đánh dấu CHƯA THU' : 'Xác nhận ĐÃ THU'}
+                    {toggling
+                      ? 'Đang cập nhật...'
+                      : bill.paidStatus === 'paid'
+                      ? 'Đánh dấu CHƯA THU'
+                      : 'Xác nhận ĐÃ THU'}
                   </span>
                 </button>
               </div>
+
+              {toggleError && (
+                <p className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                  {toggleError}
+                </p>
+              )}
             </div>
           </div>
         </div>

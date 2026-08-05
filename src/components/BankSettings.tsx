@@ -15,12 +15,16 @@ const DAY_OPTIONS = [
 
 interface BankSettingsProps {
   bankConfig: BankConfig;
-  onSaveBankConfig: (config: BankConfig) => void;
+  onSaveBankConfig: (config: BankConfig) => Promise<void>;
   classes?: EnglishClass[];
   students?: Student[];
   selectedMonth?: string;
-  onUpdateClass?: (updatedClass: EnglishClass) => void;
-  onSyncSchedule?: (classId: string, daysOfWeek: number[], monthLabel?: string) => { generatedDatesCount: number; createdSessionsCount: number };
+  onUpdateClass?: (updatedClass: EnglishClass) => Promise<void>;
+  onSyncSchedule?: (
+    classId: string,
+    daysOfWeek: number[],
+    monthLabel?: string
+  ) => Promise<{ generatedDatesCount: number; createdSessionsCount: number }>;
 }
 
 export const BankSettings: React.FC<BankSettingsProps> = ({
@@ -41,6 +45,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Local state for editing class schedule in Settings
   const [classSchedules, setClassSchedules] = useState<{
@@ -61,20 +66,25 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
     return initial;
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setActionError(null);
     const selectedBankObj = POPULAR_BANKS.find((b) => b.id === bankId);
-    onSaveBankConfig({
-      bankId,
-      bankName: selectedBankObj ? selectedBankObj.name : bankName,
-      accountNumber: accountNumber.trim(),
-      accountHolder: accountHolder.toUpperCase().trim(),
-      centerName: centerName.trim(),
-      teacherName: teacherName.trim(),
-    });
+    try {
+      await onSaveBankConfig({
+        bankId,
+        bankName: selectedBankObj ? selectedBankObj.name : bankName,
+        accountNumber: accountNumber.trim(),
+        accountHolder: accountHolder.toUpperCase().trim(),
+        centerName: centerName.trim(),
+        teacherName: teacherName.trim(),
+      });
 
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không lưu được cấu hình ngân hàng.');
+    }
   };
 
   // Toggle Day Selection for a specific class
@@ -119,7 +129,9 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
   };
 
   // Save single class schedule settings
-  const handleSaveClassSchedule = (cls: EnglishClass) => {
+  const handleSaveClassSchedule = async (cls: EnglishClass) => {
+    if (!onUpdateClass) return;
+    setActionError(null);
     const config = classSchedules[cls.id] || {
       daysOfWeek: cls.daysOfWeek || [1, 3, 5],
       scheduleTime: cls.scheduleTime || '18:00 - 19:30',
@@ -138,48 +150,61 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
       scheduleDays: labels.length > 0 ? labels.join(' - ') : cls.scheduleDays,
     };
 
-    if (onUpdateClass) {
-      onUpdateClass(updatedClass);
+    try {
+      await onUpdateClass(updatedClass);
+      setSyncNotice(`Đã lưu cấu hình lịch dạy cho lớp ${cls.name} thành công!`);
+      setTimeout(() => setSyncNotice(null), 4000);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không lưu được lịch dạy.');
     }
-
-    setSyncNotice(`Đã lưu cấu hình lịch dạy cho lớp ${cls.name} thành công!`);
-    setTimeout(() => setSyncNotice(null), 4000);
   };
 
   // Trigger sync schedule to attendance matrix for single class
-  const handleSyncClass = (cls: EnglishClass) => {
+  const handleSyncClass = async (cls: EnglishClass) => {
     if (!onSyncSchedule) return;
+    setActionError(null);
     const config = classSchedules[cls.id] || {
       daysOfWeek: cls.daysOfWeek || [1, 3, 5],
     };
 
-    const res = onSyncSchedule(cls.id, config.daysOfWeek, selectedMonth);
-    setSyncNotice(
-      `Đã đồng bộ ${res.generatedDatesCount} ngày dạy (${selectedMonth}) cho lớp ${cls.name} sang Bảng Điểm Danh!`
-    );
-    setTimeout(() => setSyncNotice(null), 5000);
+    try {
+      const res = await onSyncSchedule(cls.id, config.daysOfWeek, selectedMonth);
+      setSyncNotice(
+        `Đã đồng bộ ${res.generatedDatesCount} ngày dạy (${selectedMonth}) cho lớp ${cls.name} sang Bảng Điểm Danh!`
+      );
+      setTimeout(() => setSyncNotice(null), 5000);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không đồng bộ được lịch học.');
+    }
   };
 
-  // Bulk sync all classes at once
-  const handleSyncAllClasses = () => {
+  // Bulk sync all classes at once — tuần tự từng lớp (không Promise.all) để 1 lớp lỗi không làm
+  // các lớp còn lại rơi vào trạng thái không xác định, và để totalDates/totalSessions cộng dồn
+  // đúng thứ tự.
+  const handleSyncAllClasses = async () => {
     if (!onSyncSchedule || classes.length === 0) return;
+    setActionError(null);
 
     let totalDates = 0;
     let totalSessions = 0;
 
-    classes.forEach((cls) => {
-      const config = classSchedules[cls.id] || {
-        daysOfWeek: cls.daysOfWeek || [1, 3, 5],
-      };
-      const res = onSyncSchedule(cls.id, config.daysOfWeek, selectedMonth);
-      totalDates += res.generatedDatesCount;
-      totalSessions += res.createdSessionsCount;
-    });
+    try {
+      for (const cls of classes) {
+        const config = classSchedules[cls.id] || {
+          daysOfWeek: cls.daysOfWeek || [1, 3, 5],
+        };
+        const res = await onSyncSchedule(cls.id, config.daysOfWeek, selectedMonth);
+        totalDates += res.generatedDatesCount;
+        totalSessions += res.createdSessionsCount;
+      }
 
-    setSyncNotice(
-      `⚡ Đã đồng bộ tất cả ${classes.length} lớp học trong ${selectedMonth} sang Bảng Điểm Danh thành công!`
-    );
-    setTimeout(() => setSyncNotice(null), 6000);
+      setSyncNotice(
+        `⚡ Đã đồng bộ tất cả ${classes.length} lớp học trong ${selectedMonth} sang Bảng Điểm Danh thành công!`
+      );
+      setTimeout(() => setSyncNotice(null), 6000);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không đồng bộ được toàn bộ lớp học.');
+    }
   };
 
   const sampleQrUrl = generateVietQrUrl(
@@ -190,6 +215,19 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
 
   return (
     <div className="w-full space-y-6">
+      {/* Error Banner */}
+      {actionError && (
+        <div className="bg-rose-50 text-rose-700 border border-rose-200 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <span className="text-xs sm:text-sm font-bold">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-xs font-bold underline text-rose-700 hover:text-rose-900 px-2 cursor-pointer"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
       {/* Toast Notification Banner */}
       {syncNotice && (
         <div className="bg-emerald-600 text-white p-4 rounded-2xl shadow-lg border border-emerald-500 flex items-center justify-between animate-fade-in">

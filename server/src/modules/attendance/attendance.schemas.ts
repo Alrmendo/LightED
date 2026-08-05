@@ -32,3 +32,11 @@ export const syncScheduleSchema = z.object({
   classId: z.string().min(1, 'Thiếu classId'),
   month: yearMonth,
 });
+
+// GET /api/attendance?classId=...&month=YYYY-MM&studentId=... — mọi filter đều tuỳ chọn, bỏ trống
+// filter nào thì không lọc theo field đó (giống pattern GET /api/bills).
+export const listAttendanceQuerySchema = z.object({
+  classId: z.string().min(1, 'classId rỗng không hợp lệ').optional(),
+  month: yearMonth.optional(),
+  studentId: z.string().min(1, 'studentId rỗng không hợp lệ').optional(),
+});

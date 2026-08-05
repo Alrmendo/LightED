@@ -11,9 +11,9 @@ interface AttendanceMatrixProps {
   bills: TuitionBill[];
   bankConfig: BankConfig;
   selectedMonth: string;
-  onUpdateAttendance: (studentId: string, date: string, status: 'present' | 'excused' | 'unexcused' | 'holiday', topic?: string) => void;
-  onAddClassSessionDate: (classId: string, date: string) => void;
-  onUpdateBillStatus: (billId: string, newStatus: 'paid' | 'unpaid') => void;
+  onUpdateAttendance: (studentId: string, date: string, status: 'present' | 'excused' | 'unexcused' | 'holiday', topic?: string) => Promise<void>;
+  onAddClassSessionDate: (classId: string, date: string) => Promise<unknown>;
+  onUpdateBillStatus: (billId: string, newStatus: 'paid' | 'unpaid') => Promise<void>;
 }
 
 export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
@@ -44,25 +44,56 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
     englishClass: EnglishClass;
   } | null>(null);
 
+  // Lỗi thao tác (điểm danh/thêm buổi/đổi trạng thái thu tiền thất bại) — hiện banner chung 1 chỗ
+  // thay vì lặp try/catch riêng ở từng nơi gọi.
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const selectedClass = classes.find((c) => c.id === activeClassId) || classes[0];
   const classStudents = students.filter((s) => s.classId === activeClassId);
 
   // Tab Dashboard Metrics (Feedback #5)
   const totalClassStudents = classStudents.length;
   const totalSessionsCount = distinctDates.length;
-  
+
   const totalPresentRecords = classRecords.filter((r) => r.status === 'present').length;
   const totalPossibleRecords = totalClassStudents * totalSessionsCount || 1;
   const attendanceRate = Math.round((totalPresentRecords / totalPossibleRecords) * 100) || 0;
 
-  const handleQuickAddSession = () => {
+  const handleMarkAttendance = async (
+    studentId: string,
+    date: string,
+    status: 'present' | 'excused' | 'unexcused' | 'holiday'
+  ) => {
+    setActionError(null);
+    try {
+      await onUpdateAttendance(studentId, date, status);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không cập nhật được điểm danh.');
+    }
+  };
+
+  const handleToggleBillStatus = async (billId: string, newStatus: 'paid' | 'unpaid') => {
+    setActionError(null);
+    try {
+      await onUpdateBillStatus(billId, newStatus);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không cập nhật được trạng thái thanh toán.');
+    }
+  };
+
+  const handleQuickAddSession = async () => {
     if (!newSessionDate) return;
-    onAddClassSessionDate(activeClassId, newSessionDate);
-    setSelectedSessionDate(newSessionDate);
-    // Auto increment day for convenience
-    const current = new Date(newSessionDate);
-    current.setDate(current.getDate() + 2);
-    setNewSessionDate(current.toISOString().split('T')[0]);
+    setActionError(null);
+    try {
+      await onAddClassSessionDate(activeClassId, newSessionDate);
+      setSelectedSessionDate(newSessionDate);
+      // Auto increment day for convenience
+      const current = new Date(newSessionDate);
+      current.setDate(current.getDate() + 2);
+      setNewSessionDate(current.toISOString().split('T')[0]);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Không thêm được buổi học.');
+    }
   };
 
   const handleCopyMessageRow = (student: Student, bill: TuitionBill, idx: number) => {
@@ -75,6 +106,19 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Error Banner — vd ghi điểm danh/thêm buổi/đổi trạng thái thu tiền thất bại */}
+      {actionError && (
+        <div className="bg-rose-50 text-rose-700 border border-rose-200 p-4 rounded-2xl shadow-sm flex items-center justify-between">
+          <span className="text-xs sm:text-sm font-bold">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-xs font-bold underline text-rose-700 hover:text-rose-900 px-2 cursor-pointer"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
       {/* Tab Dedicated Dashboard Bar (Feedback #5 & #7) */}
       <div className="bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-indigo-800/60">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -318,7 +362,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                       {/* Status Selection Buttons per Student (Page 2 Feedback #7) */}
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => onUpdateAttendance(std.id, selectedSessionDate, 'present')}
+                          onClick={() => handleMarkAttendance(std.id, selectedSessionDate, 'present')}
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1 cursor-pointer ${
                             status === 'present'
                               ? 'bg-emerald-600 text-white shadow-xs'
@@ -330,7 +374,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                         </button>
 
                         <button
-                          onClick={() => onUpdateAttendance(std.id, selectedSessionDate, 'excused')}
+                          onClick={() => handleMarkAttendance(std.id, selectedSessionDate, 'excused')}
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1 cursor-pointer ${
                             status === 'excused'
                               ? 'bg-amber-500 text-white shadow-xs'
@@ -342,7 +386,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                         </button>
 
                         <button
-                          onClick={() => onUpdateAttendance(std.id, selectedSessionDate, 'unexcused')}
+                          onClick={() => handleMarkAttendance(std.id, selectedSessionDate, 'unexcused')}
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1 cursor-pointer ${
                             status === 'unexcused'
                               ? 'bg-rose-600 text-white shadow-xs'
@@ -453,7 +497,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                                   : status === 'excused'
                                   ? 'unexcused'
                                   : 'present';
-                              onUpdateAttendance(student.id, date, nextStatus);
+                              handleMarkAttendance(student.id, date, nextStatus);
                             }}
                           >
                             <div className="text-xs font-mono">
@@ -497,7 +541,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                           type="checkbox"
                           checked={isPaid}
                           onChange={(e) =>
-                            onUpdateBillStatus(studentBill.id, e.target.checked ? 'paid' : 'unpaid')
+                            handleToggleBillStatus(studentBill.id, e.target.checked ? 'paid' : 'unpaid')
                           }
                           className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                         />

@@ -61,10 +61,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="bg-transparent font-extrabold text-[#103BE6] focus:outline-none cursor-pointer text-[11px] sm:text-xs py-0.5"
               >
-                <option value="THÁNG 5">Tháng 5/2026</option>
-                <option value="THÁNG 6">Tháng 6/2026</option>
-                <option value="THÁNG 7">Tháng 7/2026</option>
-                <option value="THÁNG 8">Tháng 8/2026</option>
+                {/* value dùng đúng format "YYYY-MM" — khớp TuitionBill.month và GET /api/bills?month=
+                    ở backend (xem server/README.md quy tắc #3). Label hiển thị giữ nguyên. */}
+                <option value="2026-05">Tháng 5/2026</option>
+                <option value="2026-06">Tháng 6/2026</option>
+                <option value="2026-07">Tháng 7/2026</option>
+                <option value="2026-08">Tháng 8/2026</option>
               </select>
             </div>
 
