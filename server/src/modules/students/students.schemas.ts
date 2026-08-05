@@ -15,3 +15,8 @@ export const studentSchema = z.object({
   futureOrientation: z.string().optional(),
   notes: z.string().optional(),
 });
+
+// GET /api/students?classId=... — filter tuỳ chọn, bỏ trống thì trả toàn bộ học sinh.
+export const listStudentsQuerySchema = z.object({
+  classId: z.string().min(1, 'classId rỗng không hợp lệ').optional(),
+});

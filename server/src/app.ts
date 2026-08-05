@@ -14,8 +14,13 @@ import { AppError } from './middleware/AppError';
 // Lắp ráp Express app — KHÔNG listen ở đây, để server.ts (root) tự quyết định port/lifecycle.
 const app = express();
 
-app.use(express.json());
+// cors() PHẢI chạy TRƯỚC express.json() — nếu ngược lại, 1 request với body JSON không hợp lệ sẽ
+// làm express.json() ném lỗi và nhảy thẳng tới errorHandler mà chưa qua cors() (middleware lỗi bỏ
+// qua mọi middleware thường còn lại), khiến response 400 hợp lệ nhưng THIẾU header
+// Access-Control-Allow-Origin — browser ở FRONTEND_ORIGIN sẽ thấy đây là lỗi CORS (network error
+// mù mờ) thay vì đọc được message 400 rõ ràng.
 app.use(cors({ origin: env.FRONTEND_ORIGIN }));
+app.use(express.json());
 
 app.use('/api/auth', authRouter);
 app.use('/api/classes', classesRouter);

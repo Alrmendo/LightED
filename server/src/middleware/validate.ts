@@ -13,3 +13,20 @@ export function validateBody(schema: ZodType) {
     }
   };
 }
+
+// Tương tự validateBody nhưng cho query string (?classId=...&month=...). Trước đây các route
+// list (GET /api/students, GET /api/bills) tự đọc req.query bằng `typeof x === 'string' ? x :
+// undefined` — im lặng bỏ qua filter nếu client gửi sai kiểu (vd lặp param `?classId=a&classId=b`
+// khiến Express parse thành mảng) thay vì báo lỗi rõ ràng như mọi input khác. Dùng zod ở đây để
+// mọi input từ client (dù body hay query) đều đi qua cùng 1 con đường validate + cùng 1 format
+// lỗi 400 VALIDATION_ERROR.
+export function validateQuery(schema: ZodType) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    try {
+      req.query = schema.parse(req.query) as typeof req.query;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}

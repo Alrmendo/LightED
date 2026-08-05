@@ -2,25 +2,100 @@
 
 Trạng thái hiện tại: **Phase 2 — schema/migration/seed (Phase 1) + module `auth`, `classes`, `students`, `portal`, `attendance`, `bills`, `bankConfig`** — toàn bộ mục 5/6 kế hoạch đã có route thật.
 
-## Setup
+## Setup — chạy từ đầu (clone mới hoàn toàn)
 
-1. Cần Postgres chạy sẵn (local hoặc Neon). Tạo `.env` ở root project:
+### Yêu cầu môi trường
+
+- Node.js 20+ (dự án dùng Node v24 khi phát triển; `tsx` chạy trực tiếp TypeScript, không cần build tay).
+- Postgres chạy sẵn — local (vd Postgres cài trên máy, port mặc định 5432) hoặc cloud (vd [Neon](https://neon.tech), free tier là đủ cho dev). Chỉ cần 1 connection string.
+
+### Các bước
+
+1. **Clone + cài dependencies** (chạy ở thư mục gốc repo, KHÔNG phải trong `server/`):
+   ```bash
+   npm install
    ```
+   `npm install` KHÔNG tự generate Prisma Client (không có `postinstall` hook) — Client sẽ được generate tự động ở bước 3 (`prisma migrate dev` luôn generate lại sau khi migrate xong). Nếu chỉ cần generate lại Client mà không đổi schema (vd sau khi checkout branch khác), chạy riêng `npm run db:generate`.
+
+2. **Tạo file `.env` ở thư mục gốc repo** (cùng cấp `package.json`, KHÔNG phải trong `server/`) với đúng các biến sau:
+   ```bash
+   # Bắt buộc — connection string Postgres, phải có quyền tạo/sửa bảng để chạy migration
    DATABASE_URL="postgresql://user:pass@host:5432/dbname?schema=public"
+
+   # Bắt buộc — tài khoản giáo viên duy nhất, seed.ts dùng để tạo/upsert TeacherAccount
    SEED_TEACHER_EMAIL="teacher@lighted.local"
-   SEED_TEACHER_PASSWORD="..."
-   PORT=4000
-   FRONTEND_ORIGIN="http://localhost:3000"
+   SEED_TEACHER_PASSWORD="ChangeMe123!"
+
+   # Bắt buộc — bí mật ký JWT, PHẢI là chuỗi dài ngẫu nhiên, không dùng giá trị mẫu ở prod
    JWT_SECRET="<chuỗi random dài, vd: openssl rand -hex 48>"
+
+   # Tuỳ chọn — có default hợp lý nếu bỏ trống (xem server/src/config/env.ts)
+   PORT=4000                                # default: 4000
+   FRONTEND_ORIGIN="http://localhost:3000"  # default: http://localhost:3000 — phải khớp origin FE thật để CORS không chặn
    ```
-2. Cài dependencies: `npm install`
-3. Migrate: `npm run db:migrate`
-4. Seed: `npm run db:seed` (idempotent — chạy lại nhiều lần không tạo trùng dữ liệu)
-5. Chạy server: `npm run dev:server` — mặc định lắng nghe tại `http://localhost:4000`
+   Thiếu `DATABASE_URL`/`JWT_SECRET` sẽ làm server crash ngay lúc khởi động với message rõ ràng (`config/env.ts`/`config/prisma.ts`) — không fail âm thầm.
+
+3. **Migrate** (tạo toàn bộ bảng theo `server/prisma/schema.prisma`, đồng thời tự generate Prisma Client):
+   ```bash
+   npm run db:migrate
+   ```
+   Lần đầu chạy trên DB trống sẽ apply toàn bộ migration có sẵn trong `server/prisma/migrations/`. Nếu chỉ muốn kiểm tra trạng thái migration mà không apply gì, dùng `npx prisma migrate status`.
+
+4. **Seed dữ liệu mẫu** (idempotent — chạy lại nhiều lần không tạo trùng bản ghi, dùng `upsert` theo ID cố định):
+   ```bash
+   npm run db:seed
+   ```
+   Tạo sẵn: 1 `TeacherAccount` (email/password lấy từ `.env` ở bước 2), 4 `EnglishClass`, 8 `Student` (mỗi HS có PIN portal demo `123456`), ~76 `AttendanceRecord`, 8 `TuitionBill`, 1 `BankConfig`. Xem chi tiết ở mục "Seed data" bên dưới.
+
+5. **Chạy server**:
+   ```bash
+   npm run dev:server
+   ```
+   `tsx watch server.ts` — tự restart khi sửa code. Thấy log `LightED server đang chạy tại http://localhost:4000` nghĩa là đã chạy đúng. Nếu gặp lỗi `EADDRINUSE: address already in use :::4000`, nghĩa là đã có 1 instance server khác (vd từ lần chạy trước chưa tắt) đang giữ port 4000 — tắt process đó trước (hoặc đổi `PORT` trong `.env`).
+
+6. **Kiểm tra nhanh (smoke test)** — login teacher bằng đúng email/password vừa set ở bước 2:
+   ```bash
+   curl -s -X POST http://localhost:4000/api/auth/teacher/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"teacher@lighted.local","password":"ChangeMe123!"}'
+   # -> { "token": "..." } nghĩa là DB + migrate + seed + server đều đã đúng
+   ```
+   Nếu muốn chạy song song cả frontend (Vite, không bắt buộc để test riêng backend), ở 1 terminal khác chạy `npm run dev` (thư mục gốc) — mặc định lắng nghe `http://localhost:3000`, phải khớp `FRONTEND_ORIGIN` ở bước 2 để CORS không chặn.
+
+### Reset lại DB dev về trạng thái sạch
+
+Nếu DB dev bị lệch dữ liệu do tự test API (vd đổi giá lớp, đổi trạng thái bill...) và muốn quay lại đúng seed ban đầu — **destructive, chỉ dùng cho DB dev local, KHÔNG chạy trên DB có dữ liệu thật**:
+```bash
+npx prisma migrate reset
+```
+Drop toàn bộ bảng, apply lại migration từ đầu, rồi tự động chạy lại seed.
+
+### Kiến trúc Prisma 7 — vì sao có 2 chỗ cấu hình DB riêng biệt
 
 Schema nằm ở `server/prisma/schema.prisma`. Cấu hình Prisma CLI (đường dẫn schema, migrations, seed command) nằm ở `prisma.config.ts` tại root — **Prisma 7 không cho khai báo `url` ngay trong `schema.prisma` nữa**, và `PrismaClient` runtime bắt buộc phải nhận driver adapter tường minh (không tự đọc `DATABASE_URL` như bản cũ). Do đó:
 - `prisma.config.ts` cung cấp `datasource.url` cho riêng CLI (migrate/seed/studio).
-- Runtime code (seed script, và route API ở Phase 2) phải import `prisma` từ `server/src/config/prisma.ts` — nơi duy nhất khởi tạo `PrismaClient` với `@prisma/adapter-pg`. Không tạo `new PrismaClient()` trực tiếp ở nơi khác.
+- Runtime code (seed script, và mọi route API) phải import `prisma` từ `server/src/config/prisma.ts` — nơi duy nhất khởi tạo `PrismaClient` với `@prisma/adapter-pg`. Không tạo `new PrismaClient()` trực tiếp ở nơi khác.
+
+## Validate zod + format lỗi đồng nhất — kết quả rà soát toàn repo
+
+Đã rà lại toàn bộ route hiện có (`auth`, `classes`, `students`, `portal`, `attendance`, `bills`, `bankConfig`). Kết luận + những chỗ đã sửa:
+
+**Validate zod — đã đủ cho mọi input nhận từ client:**
+- Mọi route có `req.body` đều có `validateBody(schema)` — không route nào đọc `req.body` trực tiếp mà bỏ qua validate.
+- 2 route list có query filter (`GET /api/students?classId=`, `GET /api/bills?classId=&month=&studentId=`) TRƯỚC ĐÂY tự đọc `req.query` bằng `typeof x === 'string' ? x : undefined` — im lặng bỏ qua filter nếu sai kiểu (vd lặp param `?classId=a&classId=b` khiến Express parse thành mảng) thay vì báo lỗi. Đã thêm `validateQuery()` (`middleware/validate.ts`, sinh đôi với `validateBody()`) + schema riêng (`listStudentsQuerySchema`, `listBillsQuerySchema`) cho 2 route này — giờ query sai kiểu/rỗng/sai định dạng (`month` không phải `YYYY-MM`) đều trả `400 VALIDATION_ERROR` rõ ràng thay vì âm thầm bỏ qua filter.
+- Route không nhận input nào ngoài `:id`/token (`DELETE`, `POST .../access-code`, `POST .../revoke`) không cần schema — `:id` rỗng không thể match route Express nên không có gì để validate thêm; id sai/không tồn tại được service layer bắt và trả `404` đúng chuẩn.
+
+**Format lỗi — đồng nhất `{ error: { code, message, details? } }` cho MỌI lỗi, kể cả lỗi hạ tầng trước đây bị bỏ sót:**
+- `ZodError` (từ `validateBody`/`validateQuery`) → `400 VALIDATION_ERROR` kèm `details` (field nào sai, sai gì).
+- `AppError` (throw tay ở service layer) → đúng `statusCode`/`code`/`message` đã set.
+- **Đã phát hiện + sửa 1 lỗi thật:** body JSON không hợp lệ (vd client gửi `Content-Type: application/json` nhưng body không parse được) trước đây KHÔNG được `errorHandler.ts` nhận diện, rơi xuống nhánh generic → trả nhầm `500 INTERNAL_ERROR` (và log ra console dù đây là lỗi CLIENT, không phải lỗi server thật). Đã thêm nhánh riêng nhận diện `SyntaxError` từ `express.json()`/body-parser (`err.status === 400 && err.type === 'entity.parse.failed'`) → trả đúng `400 VALIDATION_ERROR`.
+- **Đã phát hiện + sửa 1 bug liên quan:** `cors()` trước đây mount SAU `express.json()` trong `app.ts`. Vì middleware lỗi (như JSON-parse-fail ở trên) bỏ qua mọi middleware thường còn lại, response 400 đó không bao giờ có header `Access-Control-Allow-Origin` — browser ở đúng `FRONTEND_ORIGIN` sẽ thấy đây là lỗi CORS (network error mù mờ) thay vì đọc được message 400. Đã đổi thứ tự: `cors()` mount TRƯỚC `express.json()`.
+- Route không khớp path/method nào → `404 NOT_FOUND` (catch-all cuối `app.ts`), cùng format.
+- Cùng 1 `code` (vd `CLASS_NOT_FOUND`, `STUDENT_NOT_FOUND`) được dùng ở CẢ 2 tình huống khác `statusCode` tuỳ ngữ cảnh — đây là chủ đích, không phải lỗi: `400` khi field FK trong body (vd `classId` gửi lên trong `POST /api/students`) không trỏ tới bản ghi tồn tại (lỗi request), `404` khi chính `:id` trên URL không tồn tại (lỗi resource). Format bao lỗi vẫn y hệt nhau ở cả 2 case, chỉ khác `statusCode`.
+
+## Rate limit 2 endpoint login — đã có sẵn, đã verify lại
+
+`POST /api/auth/teacher/login` và `POST /api/auth/portal/login` đều gắn `createLoginRateLimiter()` (`middleware/loginRateLimiter.ts`, factory tạo `express-rate-limit` — gọi 1 lần riêng cho mỗi route nên 2 endpoint có bộ đếm độc lập, brute-force PIN portal không ăn chung quota với login giáo viên). Giới hạn: **10 request / 15 phút / IP**, vượt quá trả `429 RATE_LIMITED` đúng format lỗi chung. Đã verify lại bằng cách gọi `POST /api/auth/teacher/login` sai password 11 lần liên tiếp: 10 lần đầu trả `401 INVALID_CREDENTIALS`, lần thứ 11 trả `429 RATE_LIMITED` — đúng như thiết kế, không cần sửa gì thêm.
 
 ## Quy tắc nghiệp vụ quan trọng (áp dụng khi viết route ở Phase 2)
 

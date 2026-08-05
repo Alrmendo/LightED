@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/asyncHandler';
-import { validateBody } from '../../middleware/validate';
+import { validateBody, validateQuery } from '../../middleware/validate';
 import { requireAuth, requireRole } from '../../middleware/auth';
-import { studentSchema } from './students.schemas';
+import { studentSchema, listStudentsQuerySchema } from './students.schemas';
 import {
   listStudents,
   createStudent,
@@ -18,8 +18,9 @@ studentsRouter.use(requireAuth, requireRole('TEACHER'));
 
 studentsRouter.get(
   '/',
+  validateQuery(listStudentsQuerySchema),
   asyncHandler(async (req, res) => {
-    const classId = typeof req.query.classId === 'string' ? req.query.classId : undefined;
+    const { classId } = req.query as unknown as { classId?: string };
     res.json(await listStudents(classId));
   })
 );
