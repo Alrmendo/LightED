@@ -246,12 +246,24 @@ async function main() {
     },
   });
 
+  // TeacherAccount: đúng 1 dòng duy nhất cho cả trung tâm (1 giáo viên). CỐ TÌNH không dùng
+  // upsert({ where: { email } }) như trước — đổi SEED_TEACHER_EMAIL khiến where không khớp dòng
+  // cũ (email cũ khác email mới), rơi vào nhánh create và ĐỂ LẠI dòng cũ với email/password cũ
+  // vẫn đăng nhập được song song, tức là nhân đôi (đây chính xác là bug đang sửa).
+  // Cũng KHÔNG dùng upsert theo id cố định kiểu BANK_CONFIG_ID ở trên: dòng đang có trên
+  // production được tạo từ lần seed đầu tiên (trước fix này) với id cuid ngẫu nhiên do
+  // Prisma tự sinh, không khớp bất kỳ id cố định nào mới — vẫn sẽ tạo thêm dòng thứ 2.
+  // Xoá sạch rồi tạo lại (1 transaction, atomic) là cách DUY NHẤT đảm bảo luôn đúng 1 dòng khớp
+  // đúng giá trị .env hiện tại, bất kể DB trước đó đang ở trạng thái nào (email cũ gì, id gì).
+  // An toàn để deleteMany: TeacherAccount không có FK nào từ bảng khác trỏ tới (xem
+  // schema.prisma — model này không xuất hiện ở bất kỳ quan hệ nào khác).
   const teacherPasswordHash = await bcrypt.hash(teacherPassword, BCRYPT_ROUNDS);
-  await prisma.teacherAccount.upsert({
-    where: { email: teacherEmail },
-    update: { passwordHash: teacherPasswordHash },
-    create: { email: teacherEmail, passwordHash: teacherPasswordHash, name: 'Giáo viên LightED' },
-  });
+  await prisma.$transaction([
+    prisma.teacherAccount.deleteMany({}),
+    prisma.teacherAccount.create({
+      data: { email: teacherEmail, passwordHash: teacherPasswordHash, name: 'Giáo viên LightED' },
+    }),
+  ]);
 
   for (const cls of CLASSES) {
     await prisma.englishClass.upsert({ where: { id: cls.id }, update: cls, create: cls });
