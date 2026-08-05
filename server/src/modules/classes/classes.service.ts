@@ -2,7 +2,7 @@ import type { z } from 'zod';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../middleware/AppError';
 import { isForeignKeyConstraintError } from '../../utils/prismaErrors';
-import { recalcBillsForClassPriceChange } from '../bills/bills.service';
+import { recalcBillsForStudent } from '../bills/bills.service';
 import type { classSchema } from './classes.schemas';
 
 type ClassInput = z.infer<typeof classSchema>;
@@ -21,9 +21,26 @@ export async function updateClass(id: string, data: ClassInput) {
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.englishClass.update({ where: { id }, data });
+
     if (existing.pricePerSession !== updated.pricePerSession) {
-      await recalcBillsForClassPriceChange(tx, id, updated.pricePerSession);
+      // Đổi giá lớp -> recalc MỌI bill (mọi tháng) đang gắn classId này, bỏ qua bill đã paid.
+      // Dựa theo TuitionBill.classId (lớp đã tính phí lúc bill đó được tạo), KHÔNG dựa vào lớp
+      // hiện tại của học sinh — xem "Lưu ý ngầm khi đổi giá lớp" trong server/README.md.
+      const bills = await tx.tuitionBill.findMany({
+        where: { classId: id, paidStatus: { not: 'paid' } },
+        select: { studentId: true, month: true },
+      });
+
+      for (const bill of bills) {
+        await recalcBillsForStudent(tx, {
+          studentId: bill.studentId,
+          classId: id,
+          month: bill.month,
+          pricePerSession: updated.pricePerSession,
+        });
+      }
     }
+
     return updated;
   });
 }

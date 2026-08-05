@@ -5,9 +5,9 @@ import 'dotenv/config';
 import type { AttendanceStatus, PaidStatus } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { prisma } from '../src/config/prisma';
+import { BANK_CONFIG_ID } from '../src/modules/bankConfig/bankConfig.service';
 
 const BCRYPT_ROUNDS = 10;
-const BANK_CONFIG_ID = 'bank-config-default';
 const DEMO_PORTAL_PIN = '123456'; // PIN demo dùng chung cho mọi học sinh seed, chỉ để test portal login cục bộ
 
 // Dữ liệu mockData.ts dùng cho "Tháng 5/2026" (label cũ "THÁNG 5") — chuẩn hoá về "YYYY-MM".

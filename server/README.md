@@ -1,6 +1,6 @@
 # LightED Backend
 
-Trạng thái hiện tại: **Phase 2 — schema/migration/seed (Phase 1) + module `auth`, `classes`, `students`, `portal`**. Module `attendance` và `bills` (route GET/PUT thật cho giáo viên) + `bankConfig` (route CRUD) chưa làm.
+Trạng thái hiện tại: **Phase 2 — schema/migration/seed (Phase 1) + module `auth`, `classes`, `students`, `portal`, `attendance`, `bills`, `bankConfig`** — toàn bộ mục 5/6 kế hoạch đã có route thật.
 
 ## Setup
 
@@ -190,12 +190,162 @@ curl -s http://localhost:4000/api/portal/me -H "Authorization: Bearer $TEACHER_T
 # -> 403 FORBIDDEN — requirePortalOwnership chặn token role TEACHER
 ```
 
-### QUAN TRỌNG cho Giai đoạn 4 (module `attendance` + `bills` route thật) — đọc trước khi code
+### `computeBillSummary()` — nguồn tính bill DUY NHẤT, dùng lại ở khắp nơi
 
-`GET /api/portal/me` tính `totalAttendedSessions`/`totalAmount`/`attendedDates` bằng `computeBillSummary()` ở **`server/src/modules/bills/bills.utils.ts`** — hàm DUY NHẤT tính "điểm danh present trong tháng → số buổi + tiền + danh sách ngày". `bills.service.ts` (`applyBillRecalc`, phần lõi của `recalcCurrentMonthBillForStudent`/`recalcBillsForClassPriceChange` đã dùng ở classes/students) cũng đã refactor để gọi lại đúng hàm này thay vì tự đếm riêng.
-
-**Khi làm Giai đoạn 4** (`GET /api/bills`, `PUT /api/bills/:id/status`, và trigger recalc mới khi điểm danh đổi ở module `attendance`): PHẢI tiếp tục gọi `computeBillSummary()` cho mọi chỗ cần "tính bill từ điểm danh" — tuyệt đối không viết lại 1 bản đếm/tính tiền khác ở `bills.routes.ts`/`attendance.service.ts`. Nếu có logic mới cần thêm (vd định dạng khác cho response), mở rộng `computeBillSummary()`/thêm hàm mới cạnh nó trong `bills.utils.ts`, không tách riêng.
+`GET /api/portal/me` tính `totalAttendedSessions`/`totalAmount`/`attendedDates` bằng `computeBillSummary()` ở **`server/src/modules/bills/bills.utils.ts`** — hàm DUY NHẤT tính "điểm danh present trong tháng → số buổi + tiền + danh sách ngày". `bills.service.ts` (`recalcBillsForStudent()` — hàm DUY NHẤT ghi lại kết quả đó vào `TuitionBill`, dùng ở cả module `classes`, `students`, `attendance`) cũng gọi lại đúng hàm này thay vì tự đếm riêng. Không viết thêm 1 bản đếm/tính tiền nào khác ở nơi khác — nếu có logic mới cần thêm (vd định dạng khác cho response), mở rộng `computeBillSummary()`/`recalcBillsForStudent()`, không tách riêng.
 
 ### Thiết kế `GET /api/portal/me`: số liệu bill luôn tính "live", không tin tưởng tuyệt đối cột đã lưu
 
 `totalAttendedSessions`/`totalAmount`/`attendedDates` tính lại real-time từ `AttendanceRecord` mỗi lần gọi (qua `computeBillSummary`), KHÔNG lấy trực tiếp từ cột đã lưu trong `TuitionBill` — để hiển thị luôn đúng ngay cả khi lỡ có 1 trigger recalc nào đó bị bỏ sót. `paidStatus`/`paidDate`/`note`/`receiptUrl` thì lấy từ row `TuitionBill` đã lưu (mặc định `unpaid`/`null` nếu bill tháng này chưa từng được tạo — vd học sinh mới, hoặc điểm danh vừa được thêm nhưng chưa có trigger recalc nào chạy qua để tạo row bill tương ứng — trường hợp này `bill.id` sẽ là 1 chuỗi placeholder `bill-<studentId>-<month>` chứ không phải id thật trong DB, và gọi `confirm-payment` với id đó sẽ trả `404` vì chưa có gì để xác nhận thanh toán).
+
+`GET /api/bills` (route giáo viên, phần dưới) thì KHÔNG tính live như trên — nó trả thẳng row đã lưu trong `TuitionBill`, vì mọi đường ghi (`PUT /api/attendance`, `POST /api/attendance/session-date`, `POST /api/attendance/sync-schedule`, `PUT /api/classes/:id`, `POST`/`PUT /api/students`) đều đã trigger `recalcBillsForStudent()` đồng bộ trong transaction ngay khi ghi — nên cột đã lưu luôn đúng, không cần tính lại lần nữa khi đọc.
+
+### `bankConfig` trong `GET /api/portal/me`: đã sửa để query đúng row cố định
+
+Trước khi có module `bankConfig` (route thật), `getPortalMe()` lấy cấu hình ngân hàng bằng `prisma.bankConfig.findFirst()` — dựa vào giả định "chỉ nên có đúng 1 row" nhưng không có gì đảm bảo `findFirst()` luôn trả về đúng row đó nếu lỡ có ai tạo thêm 1 row thứ 2 bằng tay. Đã đổi sang `prisma.bankConfig.findUnique({ where: { id: BANK_CONFIG_ID } })`, import `BANK_CONFIG_ID` từ `bankConfig.service.ts` (hằng số cố định `"bank-config-default"`, cũng là id mà `server/prisma/seed.ts` dùng để seed). `PUT /api/bank-config` (mục dưới) cũng `upsert` theo đúng id này — nên: (1) không bao giờ có row thứ 2 được tạo qua route hợp lệ, (2) `GET /api/portal/me` luôn thấy dữ liệu mới nhất ngay sau khi giáo viên `PUT`, đã verify thủ công (`PUT /api/bank-config` đổi bankName → gọi lại `GET /api/portal/me` ngay sau đó → `bankConfig.bankName` khớp giá trị vừa PUT).
+
+## Bank Config API (`/api/bank-config`) — teacher-only
+
+```bash
+curl -s http://localhost:4000/api/bank-config -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> row cấu hình ngân hàng hiện tại, hoặc null nếu chưa từng cấu hình (chưa seed/chưa PUT lần nào)
+
+curl -s -X PUT http://localhost:4000/api/bank-config \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TEACHER_TOKEN" \
+  -d '{"bankId":"vcb","bankName":"Ngân hàng Vietcombank","accountNumber":"9999888877","accountHolder":"NGUYEN VAN A","centerName":"Trung Tâm LightED","teacherName":"Henry"}'
+# -> upsert theo đúng 1 row cố định (id="bank-config-default") — gọi PUT nhiều lần không tạo thêm row nào,
+# và GET /api/portal/me gọi ngay sau đó sẽ thấy dữ liệu mới này.
+```
+
+## Bill tự tính lại: `recalcBillsForStudent()` — 1 hàm dùng chung, gọi ở đúng 4 nơi
+
+`server/src/modules/bills/bills.service.ts` export `recalcBillsForStudent(tx, { studentId, classId, month, pricePerSession })` — hàm DUY NHẤT ghi lại 1 `TuitionBill` (unique theo `(studentId, month)`, xem `@@unique([studentId, month])` trong schema). Luôn chạy trong `prisma.$transaction` cùng với thao tác ghi vừa kích hoạt nó (không bao giờ recalc "sau" trong 1 request riêng — tránh race giữa 2 request ghi đè lẫn nhau). Tôn trọng quy tắc #1 (bill `paid` bất biến): nếu bill hiện có `paidStatus === 'paid'`, hàm return ngay, không sửa gì.
+
+4 nơi gọi trực tiếp hàm này:
+
+1. **`PUT /api/classes/:id`** (`classes.service.ts#updateClass`) — khi `pricePerSession` đổi: loop mọi `TuitionBill` đang gắn `classId` đó với `paidStatus !== 'paid'`, gọi `recalcBillsForStudent` cho từng `(studentId, month)` với giá mới. Dựa theo `classId` **đã lưu trên bill** (lớp lúc tính phí), không dựa lớp hiện tại của học sinh — xem mục "Lưu ý ngầm khi đổi giá lớp" ở trên.
+2. **`POST /api/students`** / **`PUT /api/students/:id`** (`students.service.ts`) — tạo mới hoặc đổi `classId`: gọi 1 lần cho bill **tháng hiện tại** (`currentYearMonth()`, theo ngày thực server) với lớp mới nhất.
+3. **`PUT /api/attendance`** (`attendance.service.ts#upsertAttendance`) — 1 bản ghi điểm danh đổi: gọi 1 lần cho bill của **đúng tháng chứa `date`** đó (`date.slice(0, 7)`).
+4. **`POST /api/attendance/session-date`** / **`POST /api/attendance/sync-schedule`** (`attendance.service.ts`) — nhiều bản ghi điểm danh đổi cùng lúc: gọi cho từng học sinh trong lớp, với tháng chứa các ngày vừa sinh ra.
+
+## Attendance API (`/api/attendance`) — teacher-only
+
+Toàn bộ route yêu cầu `Authorization: Bearer <TEACHER_TOKEN>`. `date` luôn dạng `"YYYY-MM-DD"`, `month` luôn dạng `"YYYY-MM"`.
+
+```bash
+# 1. Điểm danh 1 học sinh 1 ngày (upsert theo unique (studentId, date))
+curl -s -X PUT http://localhost:4000/api/attendance \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TEACHER_TOKEN" \
+  -d '{"studentId":"std-101","date":"2026-08-05","status":"present"}'
+# -> tạo/ghi đè bản ghi điểm danh, classId tự lấy theo lớp HIỆN TẠI của std-101 (không nhận
+# classId từ client) + tự recalc bill của đúng tháng "2026-08"
+
+# 2. Thêm 1 buổi học mới cho CẢ LỚP (mặc định status='present' cho HS chưa điểm danh ngày đó)
+curl -s -X POST http://localhost:4000/api/attendance/session-date \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TEACHER_TOKEN" \
+  -d '{"classId":"class-ab01","date":"2026-08-10"}'
+# -> { classId, date, studentsCount } — không ghi đè điểm danh học sinh nào đã có sẵn ở ngày đó
+
+# 3. Đồng bộ lịch học (EnglishClass.daysOfWeek) thành điểm danh cho CẢ THÁNG
+curl -s -X POST http://localhost:4000/api/attendance/sync-schedule \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TEACHER_TOKEN" \
+  -d '{"classId":"class-ab01","month":"2026-08"}'
+# -> { classId, month, generatedDatesCount, studentsCount } — chỉ tạo bản ghi cho (student, date)
+# CHƯA tồn tại, gọi lại nhiều lần với cùng classId+month KHÔNG tạo bản ghi trùng (idempotent)
+```
+
+## Bills API (`/api/bills`) — teacher-only
+
+```bash
+# 1. Danh sách bill — lọc tuỳ ý theo classId/month/studentId (bỏ trống query nào thì không lọc theo field đó)
+curl -s "http://localhost:4000/api/bills?classId=class-ab01&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+
+# 2. Đổi trạng thái thanh toán (giáo viên chủ động đánh dấu đã thu / thu lại tiền mặt)
+curl -s -X PUT http://localhost:4000/api/bills/<billId>/status \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TEACHER_TOKEN" \
+  -d '{"paidStatus":"paid"}'
+# -> paidDate tự set = thời điểm hiện tại; đổi ngược lại "unpaid" thì paidDate tự set về null
+```
+
+## Test 4 case quan trọng nhất (bill + attendance)
+
+Chuẩn bị: lấy `TEACHER_TOKEN` như hướng dẫn ở đầu README, dữ liệu seed có sẵn `class-ab01` (`pricePerSession=300000`) với 2 học sinh `std-101`, `std-102`.
+
+```bash
+TEACHER_TOKEN=$(curl -s -X POST http://localhost:4000/api/auth/teacher/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"teacher@lighted.local","password":"ChangeMe123!"}' | node -pe "JSON.parse(require('fs').readFileSync(0)).token")
+```
+
+**Case 1 — điểm danh `present` → bill tăng đúng số tiền:**
+
+```bash
+curl -s "http://localhost:4000/api/bills?studentId=std-101&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> [] (chưa có bill tháng này)
+
+curl -s -X PUT http://localhost:4000/api/attendance -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" -d '{"studentId":"std-101","date":"2026-08-05","status":"present"}'
+
+curl -s "http://localhost:4000/api/bills?studentId=std-101&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> totalAttendedSessions=1, totalAmount=300000 (= pricePerSession * 1)
+
+curl -s -X PUT http://localhost:4000/api/attendance -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" -d '{"studentId":"std-101","date":"2026-08-06","status":"present"}'
+
+curl -s "http://localhost:4000/api/bills?studentId=std-101&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> totalAttendedSessions=2, totalAmount=600000. Đổi status khác 'present' (vd 'excused') ở 1
+# trong 2 ngày trên rồi gọi lại PUT /api/attendance -> totalAttendedSessions giảm về 1, totalAmount về 300000.
+```
+
+**Case 2 — chạy `sync-schedule` 2 lần liên tiếp không tạo bản ghi trùng:**
+
+```bash
+curl -s -X POST http://localhost:4000/api/attendance/sync-schedule -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" -d '{"classId":"class-ab01","month":"2026-08"}'
+# -> vd { generatedDatesCount: 9, studentsCount: 2 }
+
+curl -s "http://localhost:4000/api/bills?studentId=std-101&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> ghi lại totalAttendedSessions sau lần chạy #1 (gọi là N)
+
+curl -s -X POST http://localhost:4000/api/attendance/sync-schedule -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" -d '{"classId":"class-ab01","month":"2026-08"}'
+# -> generatedDatesCount vẫn báo tổng số ngày khớp lịch trong tháng (không đổi), NHƯNG không tạo
+# thêm bản ghi điểm danh nào mới
+
+curl -s "http://localhost:4000/api/bills?studentId=std-101&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> totalAttendedSessions PHẢI giữ nguyên = N (không tăng thêm) sau lần chạy #2 -> xác nhận
+# @@unique([studentId, date]) + skipDuplicates chặn tạo trùng
+```
+
+**Case 3 — đổi giá lớp KHÔNG được đổi số tiền của bill đã `paid`:**
+
+```bash
+BILL_ID=$(curl -s "http://localhost:4000/api/bills?studentId=std-101&month=2026-08" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" | node -pe "JSON.parse(require('fs').readFileSync(0))[0].id")
+
+curl -s -X PUT "http://localhost:4000/api/bills/$BILL_ID/status" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" -d '{"paidStatus":"paid"}'
+# -> paidStatus="paid", ghi nhớ totalAmount hiện tại (gọi là A)
+
+curl -s -X PUT http://localhost:4000/api/classes/class-ab01 -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TEACHER_TOKEN" \
+  -d '{"name":"AB01","teacherName":"Henry","pricePerSession":350000,"scheduleDays":"Thứ 2 - Thứ 4","targetMonthSessions":8,"daysOfWeek":[1,3],"scheduleTime":"18:00 - 19:30","room":"Phòng 201"}'
+
+curl -s "http://localhost:4000/api/bills?studentId=std-101&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> bill của std-101 PHẢI giữ nguyên pricePerSession=300000, totalAmount=A (không đổi thành 350000)
+```
+
+**Case 4 — đổi giá lớp CÓ đổi đúng số tiền của bill `unpaid`:**
+
+```bash
+# std-102 (cùng lớp class-ab01) đang unpaid — nếu chưa có bill tháng này thì điểm danh/sync trước
+curl -s "http://localhost:4000/api/bills?studentId=std-102&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> ghi nhớ totalAttendedSessions (gọi là S, không đổi bởi bước đổi giá) và pricePerSession cũ (300000)
+
+# (lặp lại đúng lệnh PUT /api/classes/class-ab01 với pricePerSession=350000 ở Case 3, nếu chưa chạy)
+
+curl -s "http://localhost:4000/api/bills?studentId=std-102&month=2026-08" -H "Authorization: Bearer $TEACHER_TOKEN"
+# -> pricePerSession=350000, totalAmount = S * 350000 (đúng công thức, totalAttendedSessions S giữ nguyên)
+```
+
+Đã verify thủ công cả 4 case ở trên trên DB dev local (`npm run db:seed` sau đó chạy tuần tự các lệnh) — kết quả đúng như mô tả. Nếu bạn (người đọc README) muốn state DB sạch lại như seed ban đầu sau khi tự chạy các lệnh test này, chạy `npx prisma migrate reset` (drop + migrate + seed lại từ đầu — destructive, chỉ dùng cho DB dev local).

@@ -2,6 +2,7 @@ import { prisma } from '../../config/prisma';
 import { AppError } from '../../middleware/AppError';
 import { currentYearMonth, monthDateRange, formatDateOnly } from '../../utils/date';
 import { computeBillSummary } from '../bills/bills.utils';
+import { BANK_CONFIG_ID } from '../bankConfig/bankConfig.service';
 
 // GET /api/portal/me — trả đúng data shape ParentPortal.tsx cần: student + class +
 // attendanceRecords (cả tháng, mọi status — để hiện nhật ký) + bill tháng hiện tại + bankConfig.
@@ -24,7 +25,10 @@ export async function getPortalMe(studentId: string) {
       orderBy: { date: 'asc' },
     }),
     prisma.tuitionBill.findUnique({ where: { studentId_month: { studentId, month } } }),
-    prisma.bankConfig.findFirst(),
+    // Query đúng row cấu hình ngân hàng CỐ ĐỊNH (id=BANK_CONFIG_ID) thay vì findFirst() — tránh
+    // phụ thuộc thứ tự trả về không đảm bảo nếu lỡ có nhiều hơn 1 row; PUT /api/bank-config cũng
+    // upsert theo đúng id này nên GET luôn thấy dữ liệu mới nhất ngay sau khi PUT.
+    prisma.bankConfig.findUnique({ where: { id: BANK_CONFIG_ID } }),
     computeBillSummary(prisma, studentId, month, student.class.pricePerSession),
   ]);
 

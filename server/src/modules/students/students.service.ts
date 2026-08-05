@@ -5,16 +5,19 @@ import { prisma } from '../../config/prisma';
 import { AppError } from '../../middleware/AppError';
 import { currentYearMonth } from '../../utils/date';
 import { isForeignKeyConstraintError } from '../../utils/prismaErrors';
-import { recalcCurrentMonthBillForStudent } from '../bills/bills.service';
+import { recalcBillsForStudent } from '../bills/bills.service';
 import type { studentSchema } from './students.schemas';
 
 type StudentInput = z.infer<typeof studentSchema>;
 
 const BCRYPT_ROUNDS = 10;
 
-async function assertClassExists(classId: string) {
+// Trả về cả pricePerSession vì createStudent/updateStudent cần nó để gọi recalcBillsForStudent
+// ngay sau đó — tránh query lại EnglishClass 1 lần nữa.
+async function getClassOrThrow(classId: string) {
   const cls = await prisma.englishClass.findUnique({ where: { id: classId } });
   if (!cls) throw new AppError(400, 'CLASS_NOT_FOUND', 'classId không tồn tại');
+  return cls;
 }
 
 export function listStudents(classId?: string) {
@@ -25,11 +28,18 @@ export function listStudents(classId?: string) {
 }
 
 export async function createStudent(data: StudentInput) {
-  await assertClassExists(data.classId);
+  const cls = await getClassOrThrow(data.classId);
 
   return prisma.$transaction(async (tx) => {
     const student = await tx.student.create({ data });
-    await recalcCurrentMonthBillForStudent(tx, student.id, currentYearMonth());
+    // Học sinh mới -> tạo/tính bill THÁNG HIỆN TẠI (theo ngày thực server, quy tắc #2) theo lớp
+    // vừa gán.
+    await recalcBillsForStudent(tx, {
+      studentId: student.id,
+      classId: cls.id,
+      month: currentYearMonth(),
+      pricePerSession: cls.pricePerSession,
+    });
     return student;
   });
 }
@@ -37,12 +47,18 @@ export async function createStudent(data: StudentInput) {
 export async function updateStudent(id: string, data: StudentInput) {
   const existing = await prisma.student.findUnique({ where: { id } });
   if (!existing) throw new AppError(404, 'STUDENT_NOT_FOUND', 'Không tìm thấy học sinh');
-  await assertClassExists(data.classId);
+  const cls = await getClassOrThrow(data.classId);
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.student.update({ where: { id }, data });
     if (existing.classId !== updated.classId) {
-      await recalcCurrentMonthBillForStudent(tx, id, currentYearMonth());
+      // Đổi lớp -> recalc bill THÁNG HIỆN TẠI theo lớp MỚI (không đụng tới bill các tháng khác).
+      await recalcBillsForStudent(tx, {
+        studentId: id,
+        classId: cls.id,
+        month: currentYearMonth(),
+        pricePerSession: cls.pricePerSession,
+      });
     }
     return updated;
   });

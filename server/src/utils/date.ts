@@ -18,3 +18,11 @@ export function monthDateRange(month: string): { start: Date; end: Date } {
 export function formatDateOnly(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
+
+// Chiều ngược lại formatDateOnly(): parse chuỗi "YYYY-MM-DD" (đã validate format bằng zod ở
+// schema layer) thành Date UTC thuần ngày để ghi vào cột @db.Date — KHÔNG dùng `new Date(str)`
+// trực tiếp vì cách JS/Node parse chuỗi đó phụ thuộc runtime, dễ lệch múi giờ.
+export function parseDateOnly(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}

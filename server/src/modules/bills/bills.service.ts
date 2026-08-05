@@ -1,20 +1,30 @@
-// Engine tính lại TuitionBill — dùng nội bộ bởi module classes/students (và sau này attendance).
-// CHƯA có route /api/bills nào ở đây, route GET/PUT bills sẽ làm ở phase sau.
-import type { Prisma } from '@prisma/client';
+// Engine tính lại TuitionBill + route service cho GET/PUT /api/bills.
+import type { Prisma, PaidStatus } from '@prisma/client';
+import { prisma } from '../../config/prisma';
+import { AppError } from '../../middleware/AppError';
+import { formatDateOnly } from '../../utils/date';
 import { computeBillSummary } from './bills.utils';
 
 type Tx = Prisma.TransactionClient;
 
-interface RecalcTarget {
+export interface RecalcBillTarget {
   studentId: string;
   classId: string;
   month: string;
   pricePerSession: number;
 }
 
-// Hàm lõi: tính lại đúng 1 bill (studentId, month) theo classId + pricePerSession truyền vào.
+// Hàm DUY NHẤT tính lại đúng 1 bill (unique theo studentId+month) theo classId/pricePerSession
+// truyền vào — gọi trực tiếp trong transaction ở ĐÚNG 4 nơi trigger recalc của hệ thống:
+//   1) classes.service.ts#updateClass      — EnglishClass.pricePerSession đổi
+//   2) students.service.ts#createStudent/updateStudent — học sinh mới / đổi classId
+//   3) attendance.service.ts#upsertAttendance — 1 bản ghi điểm danh đổi
+//   4) attendance.service.ts#addSessionDate/syncSchedule — nhiều bản ghi điểm danh đổi 1 lần
+// Không viết thêm hàm tính bill nào khác — mọi nơi cần "điểm danh present trong tháng -> buổi +
+// tiền" phải qua computeBillSummary() (bills.utils.ts), mọi nơi cần "ghi lại kết quả đó vào
+// TuitionBill" phải qua đây.
 // Bất biến: bill đã paidStatus='paid' KHÔNG bao giờ bị sửa (xem server/README.md, quy tắc #1).
-async function applyBillRecalc(tx: Tx, target: RecalcTarget) {
+export async function recalcBillsForStudent(tx: Tx, target: RecalcBillTarget): Promise<void> {
   const existing = await tx.tuitionBill.findUnique({
     where: { studentId_month: { studentId: target.studentId, month: target.month } },
   });
@@ -47,35 +57,39 @@ async function applyBillRecalc(tx: Tx, target: RecalcTarget) {
   });
 }
 
-// Dùng khi tạo học sinh mới hoặc học sinh đổi lớp: tính lại bill của THÁNG được truyền vào
-// (gọi với currentYearMonth() ở service layer) theo lớp HIỆN TẠI (mới nhất) của học sinh.
-export async function recalcCurrentMonthBillForStudent(tx: Tx, studentId: string, month: string) {
-  const student = await tx.student.findUnique({ where: { id: studentId }, include: { class: true } });
-  if (!student) return;
-
-  await applyBillRecalc(tx, {
-    studentId: student.id,
-    classId: student.classId,
-    month,
-    pricePerSession: student.class.pricePerSession,
+// GET /api/bills — filter tuỳ ý theo classId/month/studentId (bỏ trống filter nào thì không lọc
+// theo field đó). paidDate format lại "YYYY-MM-DD" giống hệt cách portal.service.ts đang trả, để
+// 2 nơi hiển thị cùng 1 field không lệch định dạng.
+export async function listBills(filters: { classId?: string; month?: string; studentId?: string }) {
+  const bills = await prisma.tuitionBill.findMany({
+    where: {
+      ...(filters.classId ? { classId: filters.classId } : {}),
+      ...(filters.month ? { month: filters.month } : {}),
+      ...(filters.studentId ? { studentId: filters.studentId } : {}),
+    },
+    orderBy: [{ month: 'desc' }, { studentId: 'asc' }],
   });
+
+  return bills.map((b) => ({ ...b, paidDate: b.paidDate ? formatDateOnly(b.paidDate) : null }));
 }
 
-// Dùng khi EnglishClass.pricePerSession đổi: tính lại MỌI bill (mọi tháng) đang gắn với đúng
-// classId này. Cố ý KHÔNG dựa vào lớp hiện tại của học sinh — 1 học sinh có thể đã chuyển lớp
-// từ lúc đó, bill cũ vẫn phải phản ánh đúng lớp đã tính phí lúc đó. Bỏ qua bill đã paid.
-export async function recalcBillsForClassPriceChange(tx: Tx, classId: string, newPricePerSession: number) {
-  const bills = await tx.tuitionBill.findMany({
-    where: { classId, paidStatus: { not: 'paid' } },
-    select: { studentId: true, month: true },
+// PUT /api/bills/:id/status — giáo viên chủ động đổi paidStatus (đánh dấu đã thu / thu lại tiền
+// mặt sau khi đã lỡ đánh dấu nhầm...). Đây là hành động CON NGƯỜI chủ đích, khác với recalc tự
+// động ở trên — vẫn CHO PHÉP sửa 1 bill đang paid (đổi ngược lại unpaid) vì chính route này là
+// nơi duy nhất định nghĩa "paid" nghĩa là gì; recalcBillsForStudent() chỉ tôn trọng giá trị đã set
+// ở đây và không tự ý ghi đè.
+export async function updateBillStatus(id: string, data: { paidStatus: PaidStatus; note?: string }) {
+  const existing = await prisma.tuitionBill.findUnique({ where: { id } });
+  if (!existing) throw new AppError(404, 'BILL_NOT_FOUND', 'Không tìm thấy hoá đơn');
+
+  const updated = await prisma.tuitionBill.update({
+    where: { id },
+    data: {
+      paidStatus: data.paidStatus,
+      paidDate: data.paidStatus === 'paid' ? new Date() : null,
+      ...(data.note !== undefined ? { note: data.note } : {}),
+    },
   });
 
-  for (const bill of bills) {
-    await applyBillRecalc(tx, {
-      studentId: bill.studentId,
-      classId,
-      month: bill.month,
-      pricePerSession: newPricePerSession,
-    });
-  }
+  return { ...updated, paidDate: updated.paidDate ? formatDateOnly(updated.paidDate) : null };
 }
