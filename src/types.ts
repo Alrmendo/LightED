@@ -3,8 +3,9 @@ export type AttendanceStatus = 'present' | 'excused' | 'unexcused' | 'holiday';
 export interface Student {
   id: string;
   name: string;
-  parentName: string;
+  parentName?: string;
   phone: string;
+  studentPhone?: string;
   classId: string;
   email?: string;
   avatar?: string;

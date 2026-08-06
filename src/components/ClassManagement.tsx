@@ -69,6 +69,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
   const [parentNameInput, setParentNameInput] = useState('');
   const [parentDobInput, setParentDobInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
+  const [studentPhoneInput, setStudentPhoneInput] = useState('');
   const [studentClassIdInput, setStudentClassIdInput] = useState(classes[0]?.id || '');
 
   // Tab Dashboard Metrics
@@ -200,6 +201,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
       setParentNameInput(std.parentName || '');
       setParentDobInput(std.parentDob || '');
       setPhoneInput(std.phone || '');
+      setStudentPhoneInput(std.studentPhone || '');
       setStudentClassIdInput(std.classId);
     } else {
       setEditingStudent(null);
@@ -207,6 +209,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
       setParentNameInput('');
       setParentDobInput('');
       setPhoneInput('0901234567');
+      setStudentPhoneInput('');
       setStudentClassIdInput(classes[0]?.id || '');
     }
     setIsStudentModalOpen(true);
@@ -225,6 +228,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
           parentName: parentNameInput,
           parentDob: parentDobInput,
           phone: phoneInput,
+          studentPhone: studentPhoneInput,
           classId: studentClassIdInput,
         });
       } else {
@@ -233,6 +237,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
           parentName: parentNameInput,
           parentDob: parentDobInput,
           phone: phoneInput,
+          studentPhone: studentPhoneInput,
           classId: studentClassIdInput,
         });
       }
@@ -434,7 +439,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
                 <th className="py-3 px-4">LỚP ĐANG HỌC</th>
                 <th className="py-3 px-4">PHỤ HUYNH BẢO LÃNH</th>
                 <th className="py-3 px-4">SINH NHẬT PH</th>
-                <th className="py-3 px-4">SỐ ĐIỆN THOẠI (ZALO)</th>
+                <th className="py-3 px-4">SĐT PHỤ HUYNH (ZALO)</th>
                 <th className="py-3 px-4 text-center">THAO TÁC</th>
               </tr>
             </thead>
@@ -644,12 +649,23 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Số Điện Thoại (Nhận Zalo):</label>
+                <label className="block font-medium text-slate-700 mb-1">SĐT Phụ Huynh (Zalo):</label>
                 <input
                   type="text"
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
                   className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">SĐT Học Sinh (nếu có):</label>
+                <input
+                  type="text"
+                  value={studentPhoneInput}
+                  onChange={(e) => setStudentPhoneInput(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-mono"
+                  placeholder="VD: 0912345678"
                 />
               </div>
 

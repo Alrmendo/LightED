@@ -56,8 +56,9 @@ model EnglishClass {
 model Student {
   id                String  @id @default(cuid())
   name              String
-  parentName        String
+  parentName        String?
   phone             String
+  studentPhone      String?
   email             String?
   avatar            String?
   dob               String? // "DD/MM/YYYY", giữ nguyên định dạng chuỗi như frontend hiện tại

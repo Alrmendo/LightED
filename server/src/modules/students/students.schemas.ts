@@ -4,8 +4,9 @@ import { z } from 'zod';
 // nên POST và PUT dùng chung 1 schema đầy đủ field.
 export const studentSchema = z.object({
   name: z.string().min(1, 'Thiếu tên học sinh'),
-  parentName: z.string().min(1, 'Thiếu tên phụ huynh'),
+  parentName: z.string().optional(),
   phone: z.string().min(8, 'Số điện thoại không hợp lệ').max(15, 'Số điện thoại không hợp lệ'),
+  studentPhone: z.string().max(15, 'Số điện thoại không hợp lệ').optional(),
   classId: z.string().min(1, 'Thiếu classId'),
   email: z.string().optional(),
   avatar: z.string().optional(),

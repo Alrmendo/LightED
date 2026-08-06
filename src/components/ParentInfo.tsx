@@ -47,6 +47,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
     name: '',
     parentName: '',
     phone: '',
+    studentPhone: '',
     classId: classes[0]?.id || '',
     email: '',
     dob: '',
@@ -67,7 +68,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
     const matchesClass = selectedClassId === 'all' || std.classId === selectedClassId;
     const matchesSearch =
       std.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      std.parentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (std.parentName && std.parentName.toLowerCase().includes(searchQuery.toLowerCase())) ||
       std.phone.includes(searchQuery) ||
       (std.parentDob && std.parentDob.includes(searchQuery)) ||
       (std.futureOrientation && std.futureOrientation.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -91,6 +92,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
       name: '',
       parentName: '',
       phone: '',
+      studentPhone: '',
       classId: selectedClassId !== 'all' ? selectedClassId : classes[0]?.id || '',
       email: '',
       dob: '',
@@ -103,8 +105,8 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
   const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.parentName || !formData.phone) {
-      showToast('Vui lòng điền đủ Tên học sinh, Tên phụ huynh và Số điện thoại!');
+    if (!formData.name || !formData.phone) {
+      showToast('Vui lòng điền đủ Tên học sinh và SĐT Phụ Huynh!');
       return;
     }
 
@@ -270,7 +272,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                       <User className="w-3.5 h-3.5 text-indigo-500" />
                       <span>Tên phụ huynh:</span>
                     </span>
-                    <span className="font-bold text-slate-900">{std.parentName}</span>
+                    <span className="font-bold text-slate-900">{std.parentName || 'Chưa cập nhật'}</span>
                   </div>
 
                   {/* Ngày Sinh Học Sinh */}
@@ -295,10 +297,21 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400 font-medium flex items-center space-x-1">
                       <Phone className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Số điện thoại (Zalo):</span>
+                      <span>SĐT Phụ Huynh (Zalo):</span>
                     </span>
                     <span className="font-mono font-bold text-emerald-700">{std.phone}</span>
                   </div>
+
+                  {/* SĐT Học Sinh */}
+                  {std.studentPhone && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-medium flex items-center space-x-1">
+                        <Phone className="w-3.5 h-3.5 text-blue-400" />
+                        <span>SĐT học sinh:</span>
+                      </span>
+                      <span className="font-mono font-bold text-slate-700">{std.studentPhone}</span>
+                    </div>
+                  )}
 
                   {/* Nghề Nghiệp */}
                   <div className="flex items-start justify-between pt-1">
@@ -417,10 +430,9 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Tên Phụ Huynh *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Tên Phụ Huynh</label>
                   <input
                     type="text"
-                    required
                     value={formData.parentName || ''}
                     onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -429,7 +441,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Số Điện Thoại (Zalo) *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">SĐT Phụ Huynh (Zalo) *</label>
                   <input
                     type="text"
                     required
@@ -437,6 +449,19 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="VD: 0988123456"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">SĐT Học Sinh (nếu có)</label>
+                  <input
+                    type="text"
+                    value={formData.studentPhone || ''}
+                    onChange={(e) => setFormData({ ...formData, studentPhone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="VD: 0912345678"
                   />
                 </div>
               </div>
