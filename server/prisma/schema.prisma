@@ -49,6 +49,7 @@ model EnglishClass {
   room                String?
   startDate           DateTime? @db.Date
   endDate             DateTime? @db.Date
+  totalSessions       Int?
 
   students          Student[]
   attendanceRecords AttendanceRecord[]

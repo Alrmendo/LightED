@@ -2,7 +2,7 @@ import type { EnglishClass, Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../middleware/AppError';
-import { addDays, currentYearMonth, monthDateRange, parseDateOnly } from '../../utils/date';
+import { addDays, calculateEndDateFromSessions, currentYearMonth, monthDateRange, parseDateOnly } from '../../utils/date';
 import { isForeignKeyConstraintError } from '../../utils/prismaErrors';
 import { recalcBillsForStudent } from '../bills/bills.service';
 import { syncScheduleForRange } from '../attendance/attendance.service';
@@ -15,15 +15,25 @@ export function listClasses() {
   return prisma.englishClass.findMany({ orderBy: { name: 'asc' } });
 }
 
-// startDate/endDate đến từ zod dưới dạng string "YYYY-MM-DD" (dateOnly) — convert sang Date thật
-// trước khi ghi vào cột @db.Date, cùng convention parseDateOnly() đang dùng ở attendance.service.ts
-// cho AttendanceRecord.date, không phó mặc Prisma tự coerce string.
+// startDate đến từ zod dưới dạng string "YYYY-MM-DD" (dateOnly) — convert sang Date thật trước khi
+// ghi vào cột @db.Date, cùng convention parseDateOnly() đang dùng ở attendance.service.ts cho
+// AttendanceRecord.date, không phó mặc Prisma tự coerce string.
+// endDate KHÔNG còn nhận từ client — luôn do backend tự tính từ totalSessions (mode "Số buổi
+// học") hoặc null hẳn (mode "Dài hạn" — lớp đang dạy, chưa có điểm kết thúc).
 function toPrismaData(data: ClassInput) {
-  return {
-    ...data,
-    startDate: data.startDate ? parseDateOnly(data.startDate) : undefined,
-    endDate: data.endDate ? parseDateOnly(data.endDate) : undefined,
-  };
+  const startDate = data.startDate ? parseDateOnly(data.startDate) : undefined;
+
+  if (!data.totalSessions) {
+    // Giáo viên KHÔNG chọn "Số buổi học" (mode "Dài hạn") -> phải set TƯỜNG MINH null cho cả 2
+    // field, không phải bỏ qua (undefined). Prisma update({data}) coi field undefined là "không
+    // đổi field đó" — nếu chỉ omit thì endDate/totalSessions cũ (từ lần lưu trước lúc còn ở mode
+    // "Số buổi học") sẽ kẹt lại vĩnh viễn, không bao giờ bị xoá dù giáo viên đã đổi mode.
+    return { ...data, startDate, endDate: null, totalSessions: null };
+  }
+
+  // refine ở classSchema đã đảm bảo có startDate + daysOfWeek không rỗng khi có totalSessions.
+  const endDate = calculateEndDateFromSessions(startDate!, data.daysOfWeek, data.totalSessions);
+  return { ...data, startDate, endDate, totalSessions: data.totalSessions };
 }
 
 // Side-effect lúc lưu lớp (tạo mới/sửa): nếu đã có startDate VÀ đã cấu hình daysOfWeek thì tự

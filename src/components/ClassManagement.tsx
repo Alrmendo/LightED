@@ -20,6 +20,32 @@ function formatDateVN(dateStr: string): string {
   return `${d}/${m}/${y}`;
 }
 
+// Preview client-side của server/src/utils/date.ts#calculateEndDateFromSessions — duplicate CÓ
+// CHỦ ĐÍCH để phản hồi UI tức thời (không gọi API chỉ để preview). Giá trị THẬT lưu vào DB vẫn do
+// backend tự tính lúc lưu (xem classes.service.ts#toPrismaData) — hàm này chỉ để hiển thị gợi ý.
+// Cap 3660 vòng lặp (~10 năm) để tránh treo UI nếu lỡ nhập số buổi/daysOfWeek bất thường.
+function previewEndDate(startDateStr: string, daysOfWeek: number[], totalSessions: number): string | null {
+  if (!startDateStr || daysOfWeek.length === 0 || !Number.isInteger(totalSessions) || totalSessions <= 0) {
+    return null;
+  }
+  const [y, m, d] = startDateStr.split('-').map(Number);
+  const cursor = new Date(Date.UTC(y, m - 1, d));
+  let count = 0;
+  for (let i = 0; i < 3660 && count < totalSessions; i++) {
+    if (daysOfWeek.includes(cursor.getUTCDay())) {
+      count++;
+      if (count === totalSessions) {
+        const yyyy = cursor.getUTCFullYear();
+        const mm = String(cursor.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(cursor.getUTCDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return null;
+}
+
 interface ClassManagementProps {
   classes: EnglishClass[];
   students: Student[];
@@ -62,7 +88,10 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
   const [timeInput, setTimeInput] = useState('18:00 - 19:30');
   const [roomInput, setRoomInput] = useState('Phòng 201');
   const [startDateInput, setStartDateInput] = useState('');
-  const [endDateInput, setEndDateInput] = useState('');
+  // 'ongoing' = lớp dạy dài hạn (endDate/totalSessions gửi rỗng, backend tự null hoá).
+  // 'sessions' = kết thúc tính theo tổng số buổi (totalSessionsInput) — backend tự tính endDate.
+  const [endDateMode, setEndDateMode] = useState<'sessions' | 'ongoing'>('ongoing');
+  const [totalSessionsInput, setTotalSessionsInput] = useState('');
 
   // Sync Notification Banner State
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
@@ -121,7 +150,11 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
       setTimeInput(cls.scheduleTime || '18:00 - 19:30');
       setRoomInput(cls.room || 'Phòng 201');
       setStartDateInput(cls.startDate || '');
-      setEndDateInput(cls.endDate || '');
+      // Không có totalSessions -> mặc định "Dài hạn", KỂ CẢ khi cls.endDate có giá trị (vd lớp cũ
+      // từng nhập tay endDate trước khi có tính năng này) — không có totalSessions để suy ngược
+      // lại, và bấm Lưu sẽ null hoá endDate cũ đó (đã xác nhận chấp nhận được).
+      setEndDateMode(cls.totalSessions ? 'sessions' : 'ongoing');
+      setTotalSessionsInput(cls.totalSessions ? String(cls.totalSessions) : '');
     } else {
       setEditingClass(null);
       setClassNameInput('');
@@ -132,7 +165,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
       setTimeInput('18:00 - 19:30');
       setRoomInput('Phòng 201');
       setStartDateInput('');
-      setEndDateInput('');
+      setEndDateMode('ongoing');
+      setTotalSessionsInput('');
     }
     setIsClassModalOpen(true);
   };
@@ -143,9 +177,12 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
 
     setActionError(null);
     // Input type="date" trả '' khi bỏ trống — đổi thành undefined để không gửi lên server (schema
-    // startDate/endDate yêu cầu đúng regex "YYYY-MM-DD" nếu có, không chấp nhận chuỗi rỗng).
+    // startDate yêu cầu đúng regex "YYYY-MM-DD" nếu có, không chấp nhận chuỗi rỗng).
     const startDate = startDateInput || undefined;
-    const endDate = endDateInput || undefined;
+    // Mode "Dài hạn" -> không gửi totalSessions (backend tự null hoá endDate/totalSessions cũ nếu
+    // có). Mode "Số buổi học" -> gửi số buổi, KHÔNG gửi endDate — backend tự tính.
+    const totalSessions =
+      endDateMode === 'sessions' && totalSessionsInput ? Number(totalSessionsInput) : undefined;
     try {
       let res: EnglishClass & { syncResult?: SyncRangeResult };
       if (editingClass) {
@@ -159,7 +196,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
           scheduleTime: timeInput,
           room: roomInput,
           startDate,
-          endDate,
+          totalSessions,
         });
       } else {
         res = await onAddClass({
@@ -172,7 +209,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
           scheduleTime: timeInput,
           room: roomInput,
           startDate,
-          endDate,
+          totalSessions,
         });
       }
       setIsClassModalOpen(false);
@@ -425,15 +462,19 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
                     <MapPin className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                     <span>Phòng: <strong className="text-slate-800">{cls.room || 'Phòng 201'}</strong></span>
                   </div>
-                  {(cls.startDate || cls.endDate) && (
+                  {cls.startDate && (
                     <div className="flex items-center space-x-1.5">
                       <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                       <span>
                         Thời gian:{' '}
                         <strong className="text-slate-800">
-                          {cls.startDate ? formatDateVN(cls.startDate) : '—'}
+                          {formatDateVN(cls.startDate)}
                           {' → '}
-                          {cls.endDate ? formatDateVN(cls.endDate) : 'đang dạy'}
+                          {cls.totalSessions
+                            ? `${cls.totalSessions} buổi${
+                                cls.endDate ? ` (dự kiến hết ${formatDateVN(cls.endDate)})` : ''
+                              }`
+                            : 'đang dạy dài hạn'}
                         </strong>
                       </span>
                     </div>
@@ -593,28 +634,73 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
                 </div>
               </div>
 
-              {/* Start/End Date — điểm danh tự sinh khi lưu, xem handleSaveClass */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Ngày Bắt Đầu:</label>
-                  <input
-                    type="date"
-                    value={startDateInput}
-                    onChange={(e) => setStartDateInput(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
-                  />
+              {/* Start Date + chế độ kết thúc — điểm danh tự sinh khi lưu, xem handleSaveClass */}
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Ngày Bắt Đầu:</label>
+                <input
+                  type="date"
+                  value={startDateInput}
+                  onChange={(e) => setStartDateInput(e.target.value)}
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-700 mb-1.5">Kết Thúc:</label>
+                <div className="flex gap-1.5 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setEndDateMode('sessions')}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer border ${
+                      endDateMode === 'sessions'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Số Buổi Học
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEndDateMode('ongoing')}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer border ${
+                      endDateMode === 'ongoing'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Dài Hạn
+                  </button>
                 </div>
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">
-                    Ngày Kết Thúc (bỏ trống nếu lớp đang dạy dài hạn):
-                  </label>
-                  <input
-                    type="date"
-                    value={endDateInput}
-                    onChange={(e) => setEndDateInput(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
-                  />
-                </div>
+
+                {endDateMode === 'sessions' && (
+                  <div>
+                    <input
+                      type="number"
+                      min={1}
+                      max={2000}
+                      value={totalSessionsInput}
+                      onChange={(e) => setTotalSessionsInput(e.target.value)}
+                      placeholder="VD: 24"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
+                    />
+                    {(() => {
+                      const preview = previewEndDate(
+                        startDateInput,
+                        daysOfWeekInput,
+                        Number(totalSessionsInput)
+                      );
+                      return preview ? (
+                        <p className="text-[11px] text-indigo-700 font-semibold mt-1">
+                          → Dự kiến kết thúc: {formatDateVN(preview)}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Cần Ngày Bắt Đầu + Ngày Dạy Trong Tuần + Số Buổi hợp lệ để xem trước.
+                        </p>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* Time Slot & Room */}

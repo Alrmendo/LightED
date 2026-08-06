@@ -48,3 +48,27 @@ export function monthsInRange(start: Date, endExclusive: Date): string[] {
   }
   return months;
 }
+
+// Tính ngày buổi học CUỐI CÙNG (inclusive) khi lớp có tổng số buổi cố định — đếm dần từ
+// `startDate` (tính luôn ngày đó nếu khớp daysOfWeek) tới khi đủ `totalSessions` ngày khớp
+// daysOfWeek. Dùng cho classes.service.ts#toPrismaData khi giáo viên chọn mode "Số buổi học"
+// thay vì tự nhập endDate.
+// Precondition (đảm bảo bởi caller, KHÔNG tự check ở đây để hàm thuần/dễ test — xem
+// classes.schemas.ts refine): daysOfWeek không rỗng và totalSessions > 0. Gọi hàm này với
+// daysOfWeek=[] sẽ khiến vòng lặp không bao giờ thoát.
+export function calculateEndDateFromSessions(
+  startDate: Date,
+  daysOfWeek: number[],
+  totalSessions: number
+): Date {
+  const cursor = new Date(startDate);
+  let count = 0;
+  while (count < totalSessions) {
+    if (daysOfWeek.includes(cursor.getUTCDay())) {
+      count++;
+      if (count === totalSessions) return new Date(cursor);
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return cursor;
+}

@@ -27,7 +27,8 @@ export interface EnglishClass {
   scheduleTime?: string; // e.g. "18:00 - 19:30"
   room?: string; // e.g. "Phòng 201"
   startDate?: string; // "YYYY-MM-DD" — ngày bắt đầu dạy, trống nếu chưa cấu hình
-  endDate?: string; // "YYYY-MM-DD" — trống = lớp đang dạy dài hạn, chưa có ngày kết thúc
+  totalSessions?: number; // Tổng số buổi (mode "Số buổi học") — trống = lớp đang dạy dài hạn ("Dài hạn")
+  endDate?: string; // "YYYY-MM-DD" — CHỈ ĐỌC, backend tự tính từ startDate+daysOfWeek+totalSessions, trống nếu đang dạy dài hạn
 }
 
 // Kết quả auto-sync điểm danh trả kèm response của POST/PUT /api/classes khi lớp có startDate —
