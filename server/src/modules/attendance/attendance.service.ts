@@ -1,8 +1,10 @@
 import type { Prisma, AttendanceStatus } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../middleware/AppError';
-import { formatDateOnly, monthDateRange, parseDateOnly } from '../../utils/date';
+import { formatDateOnly, monthDateRange, monthsInRange, parseDateOnly } from '../../utils/date';
 import { recalcBillsForStudent } from '../bills/bills.service';
+
+type Tx = Prisma.TransactionClient;
 
 interface UpsertAttendanceInput {
   studentId: string;
@@ -124,13 +126,22 @@ export async function addSessionDate(classId: string, dateStr: string) {
   return { classId, date: dateStr, studentsCount: students.length, createdSessionsCount };
 }
 
-// POST /api/attendance/sync-schedule — sinh toàn bộ buổi học của 1 THÁNG dựa theo
-// EnglishClass.daysOfWeek (vd T2/T4/T6), tạo attendance status='present' cho mọi học sinh đang
-// thuộc classId ở từng ngày khớp lịch — CHỈ với (student, date) CHƯA có bản ghi, không ghi đè
-// điểm danh đã có sẵn. Cùng lý do idempotent như addSessionDate ở trên: gọi lại nhiều lần liên
-// tiếp cùng classId+month không tạo bản ghi trùng.
-export async function syncSchedule(classId: string, month: string) {
-  const cls = await prisma.englishClass.findUnique({ where: { id: classId } });
+// Lõi dùng chung cho cả sync theo tháng (route thủ công) lẫn auto-sync theo startDate/endDate của
+// lớp (classes.service.ts#createClass/updateClass). Sinh toàn bộ buổi học trong [startDate,
+// endDateExclusive) dựa theo EnglishClass.daysOfWeek (vd T2/T4/T6), tạo attendance
+// status='present' cho mọi học sinh đang thuộc classId ở từng ngày khớp lịch — CHỈ với (student,
+// date) CHƯA có bản ghi, không ghi đè điểm danh đã có sẵn (idempotent — gọi lại nhiều lần cùng
+// range không tạo bản ghi trùng, không đụng bản ghi đã sửa tay).
+// Nhận `tx` từ NGOÀI truyền vào (không tự mở transaction riêng) để classes.service.ts có thể gọi
+// hàm này bên trong transaction lưu lớp học của chính nó — cùng pattern recalcBillsForStudent(tx,
+// ...) đang dùng.
+export async function syncScheduleForRange(
+  tx: Tx,
+  classId: string,
+  startDate: Date,
+  endDateExclusive: Date
+) {
+  const cls = await tx.englishClass.findUnique({ where: { id: classId } });
   if (!cls) throw new AppError(400, 'CLASS_NOT_FOUND', 'classId không tồn tại');
   if (cls.daysOfWeek.length === 0) {
     throw new AppError(
@@ -140,37 +151,36 @@ export async function syncSchedule(classId: string, month: string) {
     );
   }
 
-  const students = await prisma.student.findMany({ where: { classId }, select: { id: true } });
+  const students = await tx.student.findMany({ where: { classId }, select: { id: true } });
 
-  const { start, end } = monthDateRange(month);
   const dates: Date[] = [];
-  for (let d = new Date(start); d < end; d.setUTCDate(d.getUTCDate() + 1)) {
+  for (let d = new Date(startDate); d < endDateExclusive; d.setUTCDate(d.getUTCDate() + 1)) {
     if (cls.daysOfWeek.includes(d.getUTCDay())) dates.push(new Date(d));
   }
 
-  const createdSessionsCount = await prisma.$transaction(async (tx) => {
-    let created = 0;
-    if (students.length > 0 && dates.length > 0) {
-      const data: Prisma.AttendanceRecordCreateManyInput[] = dates.flatMap((date) =>
-        students.map((s) => ({
-          studentId: s.id,
-          classId,
-          date,
-          status: 'present',
-          lessonTopic: 'Bài giảng theo lịch học',
-        }))
-      );
-      // Xem chú thích tương tự ở addSessionDate() — createMany({ skipDuplicates: true }).count là
-      // số bản ghi MỚI thật sự, dùng cho createdSessionsCount thay vì suy đoán.
-      const result = await tx.attendanceRecord.createMany({ data, skipDuplicates: true });
-      created = result.count;
-    }
+  let createdSessionsCount = 0;
+  if (students.length > 0 && dates.length > 0) {
+    const data: Prisma.AttendanceRecordCreateManyInput[] = dates.flatMap((date) =>
+      students.map((s) => ({
+        studentId: s.id,
+        classId,
+        date,
+        status: 'present',
+        lessonTopic: 'Bài giảng theo lịch học',
+      }))
+    );
+    // Xem chú thích tương tự ở addSessionDate() — createMany({ skipDuplicates: true }).count là
+    // số bản ghi MỚI thật sự, dùng cho createdSessionsCount thay vì suy đoán.
+    const result = await tx.attendanceRecord.createMany({ data, skipDuplicates: true });
+    createdSessionsCount = result.count;
+  }
 
-    // Toàn bộ ngày sinh ra đều nằm trong đúng 1 `month` truyền vào (monthDateRange giới hạn
-    // [start, end) của tháng đó) nên chỉ có đúng 1 tháng bị ảnh hưởng — nhưng vẫn recalc lại
-    // trực tiếp bằng `month` thay vì giả định, để không phụ thuộc ngầm vào việc dates luôn cùng
-    // tháng nếu logic sinh ngày phía trên đổi sau này.
-    for (const s of students) {
+  // monthsAffected tính trực tiếp từ range [startDate, endDateExclusive), KHÔNG lọc theo `dates`
+  // sinh ra — giữ đúng hành vi bản cũ: recalc bill cho MỌI tháng nằm trong range bất kể lần gọi
+  // này có sinh ngày mới hay không (vd đã có sẵn điểm danh thủ công/session lẻ trong tháng đó).
+  const monthsAffected = monthsInRange(startDate, endDateExclusive);
+  for (const s of students) {
+    for (const month of monthsAffected) {
       await recalcBillsForStudent(tx, {
         studentId: s.id,
         classId,
@@ -178,15 +188,22 @@ export async function syncSchedule(classId: string, month: string) {
         pricePerSession: cls.pricePerSession,
       });
     }
-
-    return created;
-  });
+  }
 
   return {
-    classId,
-    month,
     generatedDatesCount: dates.length,
     studentsCount: students.length,
     createdSessionsCount,
+    monthsAffected,
   };
+}
+
+// POST /api/attendance/sync-schedule — bản đồng bộ thủ công theo 1 THÁNG (nút "Đồng bộ buổi dạy
+// sang Điểm Danh" ở ClassManagement.tsx) — giữ nguyên hành vi & response shape cũ, chỉ implement
+// lại bằng cách gọi syncScheduleForRange với range = monthDateRange(month) (đã đúng dạng [start,
+// end) exclusive sẵn, không cần chỉnh) để không có 2 bản logic sinh ngày/recalc riêng biệt.
+export async function syncSchedule(classId: string, month: string) {
+  const { start, end } = monthDateRange(month);
+  const result = await prisma.$transaction((tx) => syncScheduleForRange(tx, classId, start, end));
+  return { classId, month, ...result };
 }

@@ -6,6 +6,7 @@ import type {
   BankConfig,
   EnglishClass,
   Student,
+  SyncRangeResult,
   TuitionBill,
 } from '../types';
 
@@ -81,16 +82,24 @@ export function useTeacherData(month: string, enabled: boolean) {
 
   const createClass = useCallback(
     async (data: Omit<EnglishClass, 'id'>) => {
-      await apiFetch('/api/classes', { method: 'POST', body: JSON.stringify(data) });
+      const res = await apiFetch<EnglishClass & { syncResult?: SyncRangeResult }>('/api/classes', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
       await reload();
+      return res;
     },
     [reload]
   );
 
   const updateClass = useCallback(
     async (updated: EnglishClass) => {
-      await apiFetch(`/api/classes/${updated.id}`, { method: 'PUT', body: JSON.stringify(updated) });
+      const res = await apiFetch<EnglishClass & { syncResult?: SyncRangeResult }>(
+        `/api/classes/${updated.id}`,
+        { method: 'PUT', body: JSON.stringify(updated) }
+      );
       await reload();
+      return res;
     },
     [reload]
   );

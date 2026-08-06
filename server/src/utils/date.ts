@@ -26,3 +26,25 @@ export function parseDateOnly(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day));
 }
+
+// Cộng thêm `days` ngày (UTC thuần ngày, không giờ) — dùng để đổi 1 mốc ngày INCLUSIVE (vd
+// EnglishClass.endDate — ngày cuối cùng lớp còn dạy) sang dạng EXCLUSIVE mà
+// syncScheduleForRange/monthDateRange đang dùng ([start, end)): addDays(endDate, 1).
+export function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
+// Liệt kê mọi tháng "YYYY-MM" nằm trong [start, endExclusive) — dùng để xác định TẤT CẢ tháng bị
+// ảnh hưởng bởi 1 khoảng ngày (syncScheduleForRange), để recalc bill đúng cho từng tháng đó thay
+// vì chỉ 1 `month` cố định như syncSchedule(month) bản cũ.
+export function monthsInRange(start: Date, endExclusive: Date): string[] {
+  const months: string[] = [];
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+  while (cursor < endExclusive) {
+    months.push(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return months;
+}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BookOpen, Users, Plus, Edit2, Trash2, UserPlus, Phone, DollarSign, Calendar, Check, Save, Clock, MapPin, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
-import { EnglishClass, Student } from '../types';
+import { EnglishClass, Student, SyncRangeResult } from '../types';
 import { formatVND } from '../utils/vietqr';
 
 const DAY_OPTIONS = [
@@ -13,12 +13,19 @@ const DAY_OPTIONS = [
   { value: 0, label: 'Chủ Nhật' },
 ];
 
+// "YYYY-MM-DD" -> "DD/MM/YYYY" — chỉ dùng hiển thị card lớp học (khác parseDateToDDMM ở
+// vietqr.ts vốn bỏ năm, không hợp cho khoảng ngày trải nhiều năm).
+function formatDateVN(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 interface ClassManagementProps {
   classes: EnglishClass[];
   students: Student[];
   selectedMonth?: string;
-  onAddClass: (newClass: Omit<EnglishClass, 'id'>) => Promise<void>;
-  onUpdateClass: (updatedClass: EnglishClass) => Promise<void>;
+  onAddClass: (newClass: Omit<EnglishClass, 'id'>) => Promise<EnglishClass & { syncResult?: SyncRangeResult }>;
+  onUpdateClass: (updatedClass: EnglishClass) => Promise<EnglishClass & { syncResult?: SyncRangeResult }>;
   onDeleteClass: (classId: string) => Promise<void>;
   onAddStudent: (newStudent: Omit<Student, 'id'>) => Promise<void>;
   onUpdateStudent: (updatedStudent: Student) => Promise<void>;
@@ -54,6 +61,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
   const [daysOfWeekInput, setDaysOfWeekInput] = useState<number[]>([1, 3, 5]);
   const [timeInput, setTimeInput] = useState('18:00 - 19:30');
   const [roomInput, setRoomInput] = useState('Phòng 201');
+  const [startDateInput, setStartDateInput] = useState('');
+  const [endDateInput, setEndDateInput] = useState('');
 
   // Sync Notification Banner State
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
@@ -111,6 +120,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
       setDaysOfWeekInput(cls.daysOfWeek || [1, 3]);
       setTimeInput(cls.scheduleTime || '18:00 - 19:30');
       setRoomInput(cls.room || 'Phòng 201');
+      setStartDateInput(cls.startDate || '');
+      setEndDateInput(cls.endDate || '');
     } else {
       setEditingClass(null);
       setClassNameInput('');
@@ -120,6 +131,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
       setDaysOfWeekInput([1, 3, 5]);
       setTimeInput('18:00 - 19:30');
       setRoomInput('Phòng 201');
+      setStartDateInput('');
+      setEndDateInput('');
     }
     setIsClassModalOpen(true);
   };
@@ -129,9 +142,14 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
     if (!classNameInput) return;
 
     setActionError(null);
+    // Input type="date" trả '' khi bỏ trống — đổi thành undefined để không gửi lên server (schema
+    // startDate/endDate yêu cầu đúng regex "YYYY-MM-DD" nếu có, không chấp nhận chuỗi rỗng).
+    const startDate = startDateInput || undefined;
+    const endDate = endDateInput || undefined;
     try {
+      let res: EnglishClass & { syncResult?: SyncRangeResult };
       if (editingClass) {
-        await onUpdateClass({
+        res = await onUpdateClass({
           ...editingClass,
           name: classNameInput,
           teacherName: teacherInput,
@@ -140,9 +158,11 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
           daysOfWeek: daysOfWeekInput,
           scheduleTime: timeInput,
           room: roomInput,
+          startDate,
+          endDate,
         });
       } else {
-        await onAddClass({
+        res = await onAddClass({
           name: classNameInput,
           teacherName: teacherInput,
           pricePerSession: Number(priceInput),
@@ -151,9 +171,18 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
           daysOfWeek: daysOfWeekInput,
           scheduleTime: timeInput,
           room: roomInput,
+          startDate,
+          endDate,
         });
       }
       setIsClassModalOpen(false);
+
+      if (res.syncResult) {
+        setSyncNotice(
+          `Đã tự động đồng bộ ${res.syncResult.generatedDatesCount} ngày dạy vào Bảng Điểm Danh cho lớp ${res.name}!`
+        );
+        setTimeout(() => setSyncNotice(null), 6000);
+      }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Không lưu được thông tin lớp học.');
     }
@@ -396,6 +425,19 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
                     <MapPin className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                     <span>Phòng: <strong className="text-slate-800">{cls.room || 'Phòng 201'}</strong></span>
                   </div>
+                  {(cls.startDate || cls.endDate) && (
+                    <div className="flex items-center space-x-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span>
+                        Thời gian:{' '}
+                        <strong className="text-slate-800">
+                          {cls.startDate ? formatDateVN(cls.startDate) : '—'}
+                          {' → '}
+                          {cls.endDate ? formatDateVN(cls.endDate) : 'đang dạy'}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
                   <div className="text-[11px] text-slate-400 pt-1 border-t border-slate-200/60">
                     GV phụ trách: {cls.teacherName}
                   </div>
@@ -548,6 +590,30 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Start/End Date — điểm danh tự sinh khi lưu, xem handleSaveClass */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-medium text-slate-700 mb-1">Ngày Bắt Đầu:</label>
+                  <input
+                    type="date"
+                    value={startDateInput}
+                    onChange={(e) => setStartDateInput(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-slate-700 mb-1">
+                    Ngày Kết Thúc (bỏ trống nếu lớp đang dạy dài hạn):
+                  </label>
+                  <input
+                    type="date"
+                    value={endDateInput}
+                    onChange={(e) => setEndDateInput(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
+                  />
                 </div>
               </div>
 

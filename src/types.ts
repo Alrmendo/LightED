@@ -26,6 +26,17 @@ export interface EnglishClass {
   daysOfWeek?: number[]; // [1, 3, 5] where 1 = Mon (T2), 2 = Tue (T3), 3 = Wed (T4), 4 = Thu (T5), 5 = Fri (T6), 6 = Sat (T7), 0 = Sun (CN)
   scheduleTime?: string; // e.g. "18:00 - 19:30"
   room?: string; // e.g. "Phòng 201"
+  startDate?: string; // "YYYY-MM-DD" — ngày bắt đầu dạy, trống nếu chưa cấu hình
+  endDate?: string; // "YYYY-MM-DD" — trống = lớp đang dạy dài hạn, chưa có ngày kết thúc
+}
+
+// Kết quả auto-sync điểm danh trả kèm response của POST/PUT /api/classes khi lớp có startDate —
+// xem classes.service.ts#maybeAutoSync / attendance.service.ts#syncScheduleForRange.
+export interface SyncRangeResult {
+  generatedDatesCount: number;
+  studentsCount: number;
+  createdSessionsCount: number;
+  monthsAffected: string[];
 }
 
 export interface AttendanceRecord {

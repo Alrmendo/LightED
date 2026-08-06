@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CreditCard, Save, CheckCircle2, Calendar, Clock, MapPin, RefreshCw, BookOpen, Users, Sparkles, Check } from 'lucide-react';
-import { BankConfig, EnglishClass, Student } from '../types';
+import { BankConfig, EnglishClass, Student, SyncRangeResult } from '../types';
 import { POPULAR_BANKS, generateVietQrUrl } from '../utils/vietqr';
 
 const DAY_OPTIONS = [
@@ -19,7 +19,7 @@ interface BankSettingsProps {
   classes?: EnglishClass[];
   students?: Student[];
   selectedMonth?: string;
-  onUpdateClass?: (updatedClass: EnglishClass) => Promise<void>;
+  onUpdateClass?: (updatedClass: EnglishClass) => Promise<EnglishClass & { syncResult?: SyncRangeResult }>;
   onSyncSchedule?: (
     classId: string,
     daysOfWeek: number[],

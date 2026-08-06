@@ -47,6 +47,8 @@ model EnglishClass {
   daysOfWeek          Int[]   @default([]) // 0=CN..6=T7, khớp JS Date.getDay()
   scheduleTime        String?
   room                String?
+  startDate           DateTime? @db.Date
+  endDate             DateTime? @db.Date
 
   students          Student[]
   attendanceRecords AttendanceRecord[]
