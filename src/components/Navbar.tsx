@@ -28,11 +28,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between gap-2">
           {/* Logo & Brand */}
           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#103BE6] via-[#1236D6] to-[#2B56FF] flex items-center justify-center text-white font-black text-xs sm:text-sm shadow-[0_8px_20px_rgba(16,59,230,0.35),inset_0_1px_1.5px_rgba(255,255,255,0.6)] relative overflow-hidden shrink-0">
-              <div className="flex items-center tracking-tighter">
-                <span className="text-[#FF5500] font-black text-[11px] sm:text-xs drop-shadow-xs">Light</span>
-                <span className="bg-[#103BE6] text-white px-1 py-0.5 rounded text-[9px] sm:text-[10px] font-black ml-0.5 border border-white/30">ED</span>
-              </div>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-white shadow-[0_8px_20px_rgba(16,59,230,0.35),inset_0_1px_1.5px_rgba(255,255,255,0.6)] relative overflow-hidden shrink-0">
+              <img src="/logo.jpg" alt="LightED" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center space-x-1 sm:space-x-2">
@@ -41,13 +38,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="text-[#FF5500] font-black mr-0.5 ml-1">Light</span>
                   <span className="bg-[#103BE6] text-white px-1 sm:px-1.5 py-0.5 rounded-md text-[10px] sm:text-xs font-black shadow-xs">ED</span>
                 </h1>
-                <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold liquid-glass-pill text-[#103BE6] border border-[#103BE6]/20 shrink-0">
+                {/* <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold liquid-glass-pill text-[#103BE6] border border-[#103BE6]/20 shrink-0">
                   <QrCode className="w-3 h-3 mr-1 text-[#FF5500]" /> VietQR Auto
-                </span>
+                </span> */}
               </div>
-              <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
+              {/* <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
                 Hệ thống Quản lý Học phí & Điểm danh Tự động
-              </p>
+              </p> */}
             </div>
           </div>
 
