@@ -163,7 +163,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
 
         {/* Metric 2 */}
-        <div className="liquid-glass-accent liquid-glass-interactive p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between">
+        <div className="liquid-glass liquid-glass-interactive p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between">
           <div className="flex items-center space-x-1.5 sm:space-x-2 text-emerald-700 mb-1.5 sm:mb-2">
             <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-800">Thực Thu</span>
@@ -177,7 +177,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
 
         {/* Metric 3 */}
-        <div className="liquid-glass liquid-glass-interactive p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-rose-50/50 border-rose-200/80 flex flex-col justify-between">
+        <div className="liquid-glass liquid-glass-interactive p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between">
           <div className="flex items-center space-x-1.5 sm:space-x-2 text-rose-700 mb-1.5 sm:mb-2">
             <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-600" />
             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-rose-800">Nợ Đọng</span>
@@ -205,7 +205,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
 
         {/* Metric 5 */}
-        <div className="liquid-glass-accent liquid-glass-interactive p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between col-span-2 sm:col-span-1">
+        <div className="liquid-glass liquid-glass-interactive p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl flex flex-col justify-between col-span-2 sm:col-span-1">
           <div className="flex items-center space-x-1.5 sm:space-x-2 text-[#103BE6] mb-1.5 sm:mb-2">
             <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#103BE6]" />
             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-indigo-900">Buổi Đã Dạy</span>
