@@ -188,7 +188,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
       <div className="liquid-glass p-4 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center space-x-2">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chọn Lớp:</span>
-          <div className="flex overflow-x-auto space-x-1.5 p-1 bg-slate-100/80 rounded-2xl no-scrollbar">
+          <div className="flex overflow-x-auto space-x-1.5 p-1 liquid-glass-pill rounded-2xl no-scrollbar">
             {classes.map((cls) => {
               const clsStudentCount = students.filter((s) => s.classId === cls.id).length;
               const isActive = cls.id === activeClassId;
@@ -215,13 +215,13 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
         </div>
 
         {/* Quick Add Session Date */}
-        <div className="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
+        <div className="flex items-center space-x-2 liquid-glass-pill p-1.5 rounded-2xl">
           <span className="text-xs font-bold text-slate-600 pl-2">Thêm ngày học:</span>
           <input
             type="date"
             value={newSessionDate}
             onChange={(e) => setNewSessionDate(e.target.value)}
-            className="bg-white border border-slate-200 text-slate-900 text-xs rounded-xl px-2.5 py-1 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="liquid-glass-input text-slate-900 text-xs rounded-xl px-2.5 py-1 font-semibold"
           />
           <button
             onClick={handleQuickAddSession}
@@ -249,7 +249,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
               </div>
 
               {/* Compact Session Selector Bar */}
-              <div className="flex items-center space-x-2 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80">
+              <div className="flex items-center space-x-2 liquid-glass-pill p-1.5 rounded-2xl">
                 {/* Previous session button */}
                 <button
                   disabled={distinctDates.indexOf(selectedSessionDate) <= 0}
@@ -316,8 +316,8 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
           </div>
 
           {/* Student List for Selected Session */}
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
-            <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+          <div className="liquid-glass rounded-3xl overflow-hidden">
+            <div className="px-6 py-4 liquid-glass-subtle border-b border-slate-200/60 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <h4 className="text-sm font-extrabold text-slate-900">
                   Danh Sách Điểm Danh — Buổi Học {parseDateToDDMM(selectedSessionDate)}
@@ -330,7 +330,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
 
             <div className="divide-y divide-slate-100">
               {classStudents.length === 0 ? (
-                <div className="p-8 text-center text-slate-400">
+                <div className="p-8 text-center text-slate-500">
                   Chưa có học sinh trong lớp này.
                 </div>
               ) : (
@@ -366,7 +366,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1 cursor-pointer ${
                             status === 'present'
                               ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
+                              : 'liquid-glass-pill text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
                           }`}
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -378,7 +378,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1 cursor-pointer ${
                             status === 'excused'
                               ? 'bg-amber-500 text-white shadow-xs'
-                              : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700'
+                              : 'liquid-glass-pill text-slate-600 hover:bg-amber-50 hover:text-amber-700'
                           }`}
                         >
                           <Clock className="w-3.5 h-3.5" />
@@ -390,7 +390,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                           className={`px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1 cursor-pointer ${
                             status === 'unexcused'
                               ? 'bg-rose-600 text-white shadow-xs'
-                              : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700'
+                              : 'liquid-glass-pill text-slate-600 hover:bg-rose-50 hover:text-rose-700'
                           }`}
                         >
                           <XCircle className="w-3.5 h-3.5" />
@@ -408,7 +408,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
 
       {/* VIEW MODE 2: SPREADSHEET MATRIX EXCEL VIEW */}
       {viewMode === 'matrix' && (
-        <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-xs border border-slate-200/80 overflow-hidden">
+        <div className="liquid-glass rounded-3xl overflow-hidden">
           {/* Mobile Swipe Hint */}
           <div className="sm:hidden bg-[#103BE6]/10 px-3 py-1.5 text-[11px] font-bold text-[#103BE6] flex items-center justify-between border-b border-[#103BE6]/20">
             <span>👈 Vuốt ngang để xem các ngày điểm danh</span>

@@ -239,7 +239,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+          <div className="flex items-center space-x-1 liquid-glass-pill p-1 rounded-xl shrink-0 self-start sm:self-auto">
             <button
               onClick={() => setScheduleViewMode('weekly')}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
@@ -508,7 +508,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
                 <button
                   onClick={() => handleNavigate('attendance')}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-2xs shrink-0 flex items-center space-x-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 liquid-glass-btn-primary text-white font-bold text-xs rounded-xl shrink-0 flex items-center space-x-1.5 cursor-pointer"
                 >
                   <CalendarCheck className="w-4 h-4" />
                   <span>Điểm danh ngay</span>
@@ -615,7 +615,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             <tbody className="divide-y divide-slate-100">
               {unpaidBills.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="py-8 text-center text-slate-500 font-medium">
                     🎉 Tất cả học sinh đã hoàn thành đóng học phí tháng này!
                   </td>
                 </tr>
@@ -653,7 +653,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                       <td className="py-3.5 px-4 text-center">
                         <button
                           onClick={() => handleQrClick(student, englishClass, bill)}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center space-x-1.5 mx-auto cursor-pointer"
+                          className="px-3 py-1.5 liquid-glass-btn-primary text-white font-bold text-xs rounded-xl transition flex items-center space-x-1.5 mx-auto cursor-pointer"
                         >
                           <QrCode className="w-3.5 h-3.5" />
                           <span>Xuất VietQR & Nhắc Phí</span>

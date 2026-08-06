@@ -191,7 +191,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white/90 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="liquid-glass p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
           <div className="relative min-w-[240px]">
@@ -201,12 +201,12 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
               placeholder="Tìm tên HS, PH, SĐT, Định hướng..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-4 py-2 liquid-glass-input rounded-xl text-xs font-medium"
             />
           </div>
 
           {/* Class Filter */}
-          <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+          <div className="flex items-center space-x-1.5 liquid-glass-pill rounded-xl px-3 py-1.5">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <select
               id="parent-class-filter"
@@ -238,7 +238,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
           return (
             <div
               key={std.id}
-              className="bg-white/90 backdrop-blur-md rounded-3xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between space-y-4"
+              className="liquid-glass liquid-glass-interactive rounded-3xl p-5 transition flex flex-col justify-between space-y-4"
             >
               <div className="space-y-3">
                 {/* Header Header Info */}
@@ -268,7 +268,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                 <div className="space-y-2 pt-2 border-t border-slate-100 text-xs text-slate-700">
                   {/* Tên Phụ Huynh */}
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 font-medium flex items-center space-x-1">
+                    <span className="text-slate-500 font-medium flex items-center space-x-1">
                       <User className="w-3.5 h-3.5 text-indigo-500" />
                       <span>Tên phụ huynh:</span>
                     </span>
@@ -277,7 +277,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
                   {/* Ngày Sinh Học Sinh */}
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 font-medium flex items-center space-x-1">
+                    <span className="text-slate-500 font-medium flex items-center space-x-1">
                       <Calendar className="w-3.5 h-3.5 text-amber-500" />
                       <span>Sinh nhật học sinh:</span>
                     </span>
@@ -286,7 +286,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
                   {/* Ngày Sinh Phụ Huynh */}
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 font-medium flex items-center space-x-1">
+                    <span className="text-slate-500 font-medium flex items-center space-x-1">
                       <Calendar className="w-3.5 h-3.5 text-purple-500" />
                       <span>Sinh nhật phụ huynh:</span>
                     </span>
@@ -295,7 +295,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
                   {/* SĐT / Zalo */}
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400 font-medium flex items-center space-x-1">
+                    <span className="text-slate-500 font-medium flex items-center space-x-1">
                       <Phone className="w-3.5 h-3.5 text-emerald-500" />
                       <span>SĐT Phụ Huynh (Zalo):</span>
                     </span>
@@ -305,7 +305,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                   {/* SĐT Học Sinh */}
                   {std.studentPhone && (
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400 font-medium flex items-center space-x-1">
+                      <span className="text-slate-500 font-medium flex items-center space-x-1">
                         <Phone className="w-3.5 h-3.5 text-blue-400" />
                         <span>SĐT học sinh:</span>
                       </span>
@@ -315,7 +315,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
                   {/* Nghề Nghiệp */}
                   <div className="flex items-start justify-between pt-1">
-                    <span className="text-slate-400 font-medium flex items-center space-x-1 shrink-0">
+                    <span className="text-slate-500 font-medium flex items-center space-x-1 shrink-0">
                       <Briefcase className="w-3.5 h-3.5 text-blue-500" />
                       <span>Nghề nghiệp PH:</span>
                     </span>
@@ -335,7 +335,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
                   {/* Ghi Chú Thêm */}
                   {std.notes && (
-                    <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 text-[11px] space-y-0.5">
+                    <div className="liquid-glass-subtle p-2.5 rounded-2xl text-[11px] space-y-0.5">
                       <div className="font-bold text-slate-700 flex items-center space-x-1">
                         <FileText className="w-3.5 h-3.5 text-slate-500" />
                         <span>Ghi chú thêm từ giáo viên:</span>
@@ -386,7 +386,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
       {/* Edit / Add Student Modal */}
       {(editingStudent || isAddingNew) && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-white/50 my-8">
+          <div className="liquid-glass rounded-3xl max-w-lg w-full overflow-hidden my-8">
             <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white p-5 flex items-center justify-between">
               <h3 className="text-base font-extrabold text-white">
                 {isAddingNew ? 'Thêm Hồ Sơ Phụ Huynh Mới' : 'Cập Nhật Hồ Sơ Phụ Huynh & Học Sinh'}
@@ -411,7 +411,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                     required
                     value={formData.name || ''}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                     placeholder="VD: Lê Minh Anh"
                   />
                 </div>
@@ -421,7 +421,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                   <select
                     value={formData.classId || ''}
                     onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                   >
                     {classes.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -439,7 +439,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                     type="text"
                     value={formData.parentName || ''}
                     onChange={(e) => setFormData({ ...formData, parentName: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                     placeholder="VD: Chị Mai (Mẹ Minh Anh)"
                   />
                 </div>
@@ -450,7 +450,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                     type="text"
                     value={formData.phone || ''}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                     placeholder="VD: 0988123456"
                   />
                 </div>
@@ -463,7 +463,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                     type="text"
                     value={formData.studentPhone || ''}
                     onChange={(e) => setFormData({ ...formData, studentPhone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                     placeholder="VD: 0912345678"
                   />
                 </div>
@@ -476,7 +476,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                     type="text"
                     value={formData.dob || ''}
                     onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                     placeholder="VD: 15/08/2012"
                   />
                 </div>
@@ -487,7 +487,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                     type="text"
                     value={formData.parentDob || ''}
                     onChange={(e) => setFormData({ ...formData, parentDob: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                     placeholder="VD: 15/05/1986"
                   />
                 </div>
@@ -499,7 +499,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                   type="text"
                   value={formData.parentOccupation || ''}
                   onChange={(e) => setFormData({ ...formData, parentOccupation: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                   placeholder="VD: Kế toán trưởng"
                 />
               </div>
@@ -510,7 +510,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                   rows={2}
                   value={formData.futureOrientation || ''}
                   onChange={(e) => setFormData({ ...formData, futureOrientation: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                   placeholder="VD: Định hướng thi Chuyên Anh THPT & Thi IELTS 7.5..."
                 />
               </div>
@@ -521,7 +521,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                   rows={2}
                   value={formData.notes || ''}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 liquid-glass-input rounded-xl text-xs font-semibold"
                   placeholder="VD: Học lực tốt, cần rèn luyện kĩ năng làm bài đọc..."
                 />
               </div>
@@ -539,7 +539,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                  className="liquid-glass-btn-primary px-5 py-2 text-white font-bold text-xs rounded-xl cursor-pointer"
                 >
                   Lưu Hồ Sơ
                 </button>

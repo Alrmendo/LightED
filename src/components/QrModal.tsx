@@ -70,7 +70,7 @@ export const QrModal: React.FC<QrModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-100 my-8">
+      <div className="liquid-glass rounded-2xl max-w-3xl w-full overflow-hidden my-8">
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-emerald-800 to-teal-800 text-white p-5 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -97,7 +97,7 @@ export const QrModal: React.FC<QrModalProps> = ({
         {/* Modal Body */}
         <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: VietQR Code Card */}
-          <div className="lg:col-span-5 flex flex-col items-center justify-between bg-slate-50 p-5 rounded-2xl border border-slate-200 text-center">
+          <div className="lg:col-span-5 flex flex-col items-center justify-between liquid-glass-subtle p-5 rounded-2xl text-center">
             <div className="w-full">
               <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 mb-3">
                 <ShieldCheck className="w-3.5 h-3.5 mr-1" /> VietQR Nhanh Qua Napas247
@@ -128,7 +128,7 @@ export const QrModal: React.FC<QrModalProps> = ({
               </div>
 
               {/* Bank Details Box */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200 text-left text-xs space-y-1.5 w-full">
+              <div className="liquid-glass-subtle p-3 rounded-xl text-left text-xs space-y-1.5 w-full">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Ngân hàng:</span>
                   <span className="font-bold text-slate-800">{bankConfig.bankName || bankConfig.bankId}</span>
@@ -190,7 +190,7 @@ export const QrModal: React.FC<QrModalProps> = ({
                   readOnly
                   rows={10}
                   value={reminderMessage}
-                  className="w-full p-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner resize-none"
+                  className="w-full p-4 rounded-xl liquid-glass-input text-slate-800 font-mono text-xs leading-relaxed resize-none"
                 />
                 <button
                   onClick={handleCopyMessage}
@@ -270,7 +270,7 @@ export const QrModal: React.FC<QrModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end">
+        <div className="liquid-glass-subtle px-6 py-3 flex justify-end">
           <button
             onClick={onClose}
             className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-xl transition cursor-pointer"

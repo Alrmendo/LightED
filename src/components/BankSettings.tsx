@@ -287,7 +287,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
             return (
               <div
                 key={cls.id}
-                className="bg-slate-50/70 p-4 rounded-2xl border border-slate-200 space-y-3 hover:border-indigo-300 transition"
+                className="liquid-glass-subtle p-4 rounded-2xl space-y-3 hover:border-indigo-300 transition"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60">
                   <div className="flex items-center space-x-2">
@@ -322,7 +322,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                             className={`px-2.5 py-1 rounded-lg font-bold text-xs transition cursor-pointer border ${
                               isSelected
                                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                                : 'liquid-glass-pill text-slate-600 hover:bg-white/90'
                             }`}
                           >
                             {day.short}
@@ -340,7 +340,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                         type="text"
                         value={config.scheduleTime}
                         onChange={(e) => handleScheduleInputChange(cls.id, 'scheduleTime', e.target.value)}
-                        className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500"
+                        className="w-full p-2 liquid-glass-input rounded-lg text-xs font-semibold"
                         placeholder="18:00 - 19:30"
                       />
                     </div>
@@ -350,7 +350,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                         type="text"
                         value={config.room}
                         onChange={(e) => handleScheduleInputChange(cls.id, 'room', e.target.value)}
-                        className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500"
+                        className="w-full p-2 liquid-glass-input rounded-lg text-xs font-semibold"
                         placeholder="Phòng 201"
                       />
                     </div>
@@ -417,7 +417,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                 required
                 value={centerName}
                 onChange={(e) => setCenterName(e.target.value)}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                className="w-full p-2.5 liquid-glass-input rounded-xl font-bold text-slate-900"
               />
             </div>
 
@@ -428,7 +428,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                 required
                 value={teacherName}
                 onChange={(e) => setTeacherName(e.target.value)}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500"
+                className="w-full p-2.5 liquid-glass-input rounded-xl font-medium"
               />
             </div>
 
@@ -442,7 +442,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                     const b = POPULAR_BANKS.find((x) => x.id === e.target.value);
                     if (b) setBankName(b.name);
                   }}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  className="w-full p-2.5 liquid-glass-input rounded-xl font-bold text-slate-800 cursor-pointer"
                 >
                   {POPULAR_BANKS.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -459,7 +459,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                   required
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-xl font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                  className="w-full p-2.5 liquid-glass-input rounded-xl font-mono font-bold text-slate-900"
                 />
               </div>
             </div>
@@ -471,13 +471,13 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
                 required
                 value={accountHolder}
                 onChange={(e) => setAccountHolder(e.target.value.toUpperCase())}
-                className="w-full p-2.5 border border-slate-300 rounded-xl font-mono uppercase font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                className="w-full p-2.5 liquid-glass-input rounded-xl font-mono uppercase font-bold text-slate-900"
               />
             </div>
 
             <button
               type="submit"
-              className="mt-4 w-full flex items-center justify-center space-x-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition cursor-pointer"
+              className="mt-4 w-full flex items-center justify-center space-x-2 py-3 liquid-glass-btn-primary text-white rounded-xl font-bold text-xs transition cursor-pointer"
             >
               <Save className="w-4 h-4" />
               <span>Lưu Cấu Hình VietQR</span>
@@ -485,7 +485,7 @@ export const BankSettings: React.FC<BankSettingsProps> = ({
           </form>
 
           {/* Live VietQR Preview Box */}
-          <div className="lg:col-span-5 bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center">
+          <div className="lg:col-span-5 liquid-glass-subtle p-5 rounded-2xl flex flex-col items-center justify-center text-center">
             <span className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Xem Trước Mã VietQR Mẫu</span>
             
             <div className="bg-white p-3 rounded-xl shadow border border-slate-200 mb-3">
