@@ -141,7 +141,7 @@ const STUDENTS = [
     id: 'std-401',
     name: 'Đỗ Quốc Bảo',
     parentName: '',
-    phone: '0966778899',
+    phone: '', // học sinh mẫu chưa có SĐT — test UI "trống toàn bộ" + chặn cấp access-code portal
     classId: 'class-ab02',
     dob: '14/07/2014',
     parentDob: '12/10/1987',
@@ -272,12 +272,19 @@ async function main() {
     await prisma.englishClass.upsert({ where: { id: cls.id }, update: cls, create: cls });
   }
 
+  // Học sinh chưa có phone thì không thể cấp access-code portal (xem
+  // students.service.ts#resetAccessCode) — seed giữ đúng bất biến đó, không bật portal access cho
+  // các học sinh mẫu thiếu phone.
   const portalPinHash = await bcrypt.hash(DEMO_PORTAL_PIN, BCRYPT_ROUNDS);
   for (const std of STUDENTS) {
+    const portalFields = std.phone
+      ? { portalAccessCodeHash: portalPinHash, portalAccessEnabled: true }
+      : { portalAccessCodeHash: null, portalAccessEnabled: false };
+
     await prisma.student.upsert({
       where: { id: std.id },
-      update: { ...std, portalAccessCodeHash: portalPinHash, portalAccessEnabled: true },
-      create: { ...std, portalAccessCodeHash: portalPinHash, portalAccessEnabled: true },
+      update: { ...std, ...portalFields },
+      create: { ...std, ...portalFields },
     });
   }
 

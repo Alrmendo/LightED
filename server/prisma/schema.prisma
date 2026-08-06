@@ -59,7 +59,7 @@ model Student {
   id                String  @id @default(cuid())
   name              String
   parentName        String?
-  phone             String
+  phone             String?
   studentPhone      String?
   email             String?
   avatar            String?

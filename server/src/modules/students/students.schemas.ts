@@ -5,7 +5,15 @@ import { z } from 'zod';
 export const studentSchema = z.object({
   name: z.string().min(1, 'Thiếu tên học sinh'),
   parentName: z.string().optional(),
-  phone: z.string().min(8, 'Số điện thoại không hợp lệ').max(15, 'Số điện thoại không hợp lệ'),
+  // Optional nhưng vẫn validate độ dài KHI CÓ giá trị — không thể chỉ thêm .optional() vào
+  // z.string().min(8).max(15) vì frontend gửi '' (chuỗi rỗng) khi để trống, không phải
+  // undefined, và '' vẫn bị .min(8) reject.
+  phone: z
+    .string()
+    .optional()
+    .refine((val) => !val || (val.length >= 8 && val.length <= 15), {
+      message: 'Số điện thoại không hợp lệ',
+    }),
   studentPhone: z.string().max(15, 'Số điện thoại không hợp lệ').optional(),
   classId: z.string().min(1, 'Thiếu classId'),
   email: z.string().optional(),

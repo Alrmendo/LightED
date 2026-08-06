@@ -92,6 +92,15 @@ export async function deleteStudent(id: string) {
 export async function resetAccessCode(id: string): Promise<string> {
   const student = await prisma.student.findUnique({ where: { id } });
   if (!student) throw new AppError(404, 'STUDENT_NOT_FOUND', 'Không tìm thấy học sinh');
+  // loginPortal() match theo Student.phone — cấp mã cho học sinh chưa có phone thì mã đó không
+  // bao giờ đăng nhập được (không có gì để match). Chặn rõ ràng ở đây thay vì để lỗi ngầm.
+  if (!student.phone) {
+    throw new AppError(
+      400,
+      'STUDENT_NO_PHONE',
+      'Học sinh chưa có SĐT phụ huynh, cần bổ sung trước khi cấp mã truy cập portal'
+    );
+  }
 
   const accessCode = String(crypto.randomInt(100000, 1000000)); // 6 chữ số: 100000-999999
   const portalAccessCodeHash = await bcrypt.hash(accessCode, BCRYPT_ROUNDS);

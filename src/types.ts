@@ -4,7 +4,7 @@ export interface Student {
   id: string;
   name: string;
   parentName?: string;
-  phone: string;
+  phone?: string;
   studentPhone?: string;
   classId: string;
   email?: string;

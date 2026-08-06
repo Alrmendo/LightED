@@ -69,7 +69,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
     const matchesSearch =
       std.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (std.parentName && std.parentName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      std.phone.includes(searchQuery) ||
+      (std.phone || '').includes(searchQuery) ||
       (std.parentDob && std.parentDob.includes(searchQuery)) ||
       (std.futureOrientation && std.futureOrientation.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -105,8 +105,8 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
 
   const handleSaveStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
-      showToast('Vui lòng điền đủ Tên học sinh và SĐT Phụ Huynh!');
+    if (!formData.name) {
+      showToast('Vui lòng điền Tên học sinh!');
       return;
     }
 
@@ -299,7 +299,7 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                       <Phone className="w-3.5 h-3.5 text-emerald-500" />
                       <span>SĐT Phụ Huynh (Zalo):</span>
                     </span>
-                    <span className="font-mono font-bold text-emerald-700">{std.phone}</span>
+                    <span className="font-mono font-bold text-emerald-700">{std.phone || '—'}</span>
                   </div>
 
                   {/* SĐT Học Sinh */}
@@ -350,9 +350,13 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                 <button
                   onClick={() => {
-                    window.open(`https://zalo.me/${std.phone.replace(/[^0-9]/g, '')}`, '_blank');
+                    if (std.phone) {
+                      window.open(`https://zalo.me/${std.phone.replace(/[^0-9]/g, '')}`, '_blank');
+                    }
                   }}
-                  className="flex-1 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer"
+                  disabled={!std.phone}
+                  title={std.phone ? undefined : 'Chưa có SĐT phụ huynh'}
+                  className="flex-1 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-50"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Mở Zalo PH</span>
@@ -441,10 +445,9 @@ export const ParentInfo: React.FC<ParentInfoProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">SĐT Phụ Huynh (Zalo) *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">SĐT Phụ Huynh (Zalo)</label>
                   <input
                     type="text"
-                    required
                     value={formData.phone || ''}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
