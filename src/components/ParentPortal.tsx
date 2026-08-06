@@ -113,7 +113,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
           {/* Left Column: Attendance History & Lesson Log */}
           <div className="lg:col-span-7 space-y-6">
             {/* Student Overview Card */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div className="liquid-glass p-5 rounded-2xl">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-800 font-bold flex items-center justify-center text-lg shadow-inner">
@@ -129,7 +129,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
 
                 <div className="text-right">
                   <span className="text-xs text-slate-400 block">Kỳ học</span>
-                  <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                  <span className="text-xs font-bold text-slate-800 liquid-glass-pill px-2.5 py-1 rounded-lg">
                     {selectedMonth}
                   </span>
                 </div>
@@ -153,7 +153,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
             </div>
 
             {/* Attendance Timeline & Lesson Log */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="liquid-glass rounded-2xl p-5">
               <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center space-x-2">
                 <Calendar className="w-4 h-4 text-indigo-600" />
                 <span>Nhật Ký Điểm Danh & Bài Học ({selectedMonth})</span>
@@ -161,7 +161,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
 
               <div className="space-y-3">
                 {studentRecords.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400">
+                  <div className="py-8 text-center text-slate-500">
                     Chưa có nhật ký học tập nào trong tháng này.
                   </div>
                 ) : (
@@ -240,7 +240,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
 
           {/* Right Column: VietQR Scan Card & Tuition Breakdown */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="liquid-glass rounded-2xl p-5">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
                   <QrCode className="w-4 h-4 text-emerald-600" />
@@ -256,7 +256,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
               </div>
 
               {/* Fee breakdown box */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2 mb-4">
+              <div className="liquid-glass-subtle p-4 rounded-xl text-xs space-y-2 mb-4">
                 <div className="flex justify-between items-center text-slate-600">
                   <span>Số buổi con đi học:</span>
                   <span className="font-bold text-slate-900">{presentCount} buổi</span>
@@ -272,7 +272,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
               </div>
 
               {/* VietQR Image Box */}
-              <div className="text-center bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4">
+              <div className="text-center liquid-glass-subtle p-4 rounded-xl mb-4">
                 <div className="inline-block bg-white p-2.5 rounded-xl shadow-md border border-slate-200 mb-2">
                   <img
                     src={qrUrl}
@@ -319,7 +319,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
                   Xác nhận hoặc tải ảnh chụp bill chuyển khoản:
                 </label>
                 <div className="flex gap-2">
-                  <label className="flex-1 flex items-center justify-center space-x-2 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition">
+                  <label className="flex-1 flex items-center justify-center space-x-2 py-2 px-3 liquid-glass-btn-primary text-white rounded-xl text-xs font-semibold cursor-pointer transition">
                     <Upload className="w-4 h-4" />
                     <span>Gửi Ảnh Chuyển Khoản</span>
                     <input
@@ -335,7 +335,7 @@ export const ParentPortal: React.FC<ParentPortalProps> = ({
                       onConfirmPaymentByParent(studentBill.id);
                       setPaymentSuccessMessage('Phụ huynh đã xác nhận hoàn tất chuyển khoản!');
                     }}
-                    className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer"
+                    className="py-2 px-3 liquid-glass-btn-primary text-white rounded-xl text-xs font-semibold transition cursor-pointer"
                   >
                     Xác Nhận Đã CK
                   </button>

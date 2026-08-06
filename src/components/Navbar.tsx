@@ -182,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     </div>
 
     {/* Mobile Fixed Bottom Navigation Bar */}
-    <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 px-2 pb-2 pt-1 bg-white/90 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
+    <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 px-2 pb-2 pt-1 liquid-glass">
       <div className="grid grid-cols-6 gap-0.5 max-w-md mx-auto">
         <button
           onClick={() => setActiveTab('dashboard')}
