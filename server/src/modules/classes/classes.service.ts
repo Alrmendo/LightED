@@ -2,7 +2,14 @@ import type { EnglishClass, Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import { prisma } from '../../config/prisma';
 import { AppError } from '../../middleware/AppError';
-import { addDays, calculateEndDateFromSessions, currentYearMonth, monthDateRange, parseDateOnly } from '../../utils/date';
+import {
+  addDays,
+  calculateEndDateFromSessions,
+  currentYearMonth,
+  formatDateOnly,
+  monthDateRange,
+  parseDateOnly,
+} from '../../utils/date';
 import { isForeignKeyConstraintError } from '../../utils/prismaErrors';
 import { recalcBillsForStudent } from '../bills/bills.service';
 import { syncScheduleForRange } from '../attendance/attendance.service';
@@ -11,8 +18,21 @@ import type { classSchema } from './classes.schemas';
 type ClassInput = z.infer<typeof classSchema>;
 type Tx = Prisma.TransactionClient;
 
-export function listClasses() {
-  return prisma.englishClass.findMany({ orderBy: { name: 'asc' } });
+// Prisma trả startDate/endDate dạng Date object — res.json() sẽ serialize thành ISO string đầy
+// đủ kèm giờ (vd "2026-08-06T00:00:00.000Z") nếu trả thẳng, làm hỏng formatDateVN() ở frontend
+// (chỉ split('-') giả định đúng "YYYY-MM-DD"). Format lại trước khi trả, cùng convention
+// formatDateOnly() đã dùng cho AttendanceRecord.date/TuitionBill.paidDate.
+function toApiClass(cls: EnglishClass) {
+  return {
+    ...cls,
+    startDate: cls.startDate ? formatDateOnly(cls.startDate) : null,
+    endDate: cls.endDate ? formatDateOnly(cls.endDate) : null,
+  };
+}
+
+export async function listClasses() {
+  const classes = await prisma.englishClass.findMany({ orderBy: { name: 'asc' } });
+  return classes.map(toApiClass);
 }
 
 // startDate đến từ zod dưới dạng string "YYYY-MM-DD" (dateOnly) — convert sang Date thật trước khi
@@ -52,7 +72,7 @@ export async function createClass(data: ClassInput) {
   return prisma.$transaction(async (tx) => {
     const created = await tx.englishClass.create({ data: toPrismaData(data) });
     const syncResult = await maybeAutoSync(tx, created);
-    return { ...created, syncResult };
+    return { ...toApiClass(created), syncResult };
   });
 }
 
@@ -84,7 +104,7 @@ export async function updateClass(id: string, data: ClassInput) {
 
     const syncResult = await maybeAutoSync(tx, updated);
 
-    return { ...updated, syncResult };
+    return { ...toApiClass(updated), syncResult };
   });
 }
 
